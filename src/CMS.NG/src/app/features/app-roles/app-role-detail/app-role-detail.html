@@ -1,0 +1,54 @@
+<p-toast />
+
+<div class="page">
+  <div class="page-header">
+    <h2>角色詳細</h2>
+    <div class="actions">
+      <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" [outlined]="true" (onClick)="back()" />
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" [disabled]="!role()" />
+    </div>
+  </div>
+
+  @if (role(); as r) {
+    <p-card>
+      <ng-template pTemplate="title">角色資料</ng-template>
+      <div class="detail-grid">
+        <div class="item">
+          <span class="label">主代碼</span>
+          <span class="value">{{ r.pkid }}</span>
+        </div>
+        <div class="item">
+          <span class="label">角色代碼</span>
+          <span class="value">{{ r.roleId }}</span>
+        </div>
+        <div class="item">
+          <span class="label">角色名稱</span>
+          <span class="value">{{ r.roleName }}</span>
+        </div>
+        <div class="item">
+          <span class="label">權限等級</span>
+          <span class="value">{{ r.permissionLevel }}</span>
+        </div>
+        <div class="item full">
+          <span class="label">描述</span>
+          <span class="value">{{ r.description }}</span>
+        </div>
+      </div>
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="title">使用者（{{ userLabels().length }}）</ng-template>
+      @if (userLabels().length) {
+        <div class="chips">
+          @for (label of userLabels(); track label) {
+            <p-tag [value]="label" severity="secondary" />
+          }
+        </div>
+      } @else {
+        <span class="muted">尚無指派的使用者</span>
+      }
+    </p-card>
+  } @else if (!loading()) {
+    <p-card><span class="muted">找不到角色</span></p-card>
+  }
+</div>

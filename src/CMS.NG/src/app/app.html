@@ -1,0 +1,52 @@
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="logo"><i class="pi pi-box"></i></span>
+      <span class="name">{{ brand }}</span>
+    </div>
+
+    <nav class="menu">
+      @for (group of navGroups; track group.label) {
+        <div class="nav-group">
+          <button
+            type="button"
+            class="group-header"
+            [class.open]="expanded() === group.label"
+            (click)="toggle(group.label)"
+          >
+            <i [class]="group.icon"></i>
+            <span class="label">{{ group.label }}</span>
+            <i class="pi chevron" [class.pi-angle-down]="expanded() === group.label"
+               [class.pi-angle-right]="expanded() !== group.label"></i>
+          </button>
+
+          @if (expanded() === group.label && group.items.length) {
+            <div class="group-items">
+              @for (item of group.items; track item.label) {
+                @if (item.route) {
+                  <a
+                    class="nav-item"
+                    [routerLink]="item.route"
+                    routerLinkActive="active"
+                  >
+                    <i class="pi pi-id-card"></i>
+                    <span>{{ item.label }}</span>
+                  </a>
+                } @else {
+                  <span class="nav-item disabled">
+                    <i class="pi pi-user"></i>
+                    <span>{{ item.label }}</span>
+                  </span>
+                }
+              }
+            </div>
+          }
+        </div>
+      }
+    </nav>
+  </aside>
+
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>

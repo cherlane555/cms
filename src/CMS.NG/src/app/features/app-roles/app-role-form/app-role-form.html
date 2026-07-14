@@ -1,0 +1,84 @@
+<p-toast />
+
+<form [formGroup]="form" (ngSubmit)="save()" class="page">
+  <div class="page-header">
+    <h2>{{ isEdit() ? '編輯角色' : '新增角色' }}</h2>
+    <div class="actions">
+      <p-button
+        label="取消"
+        icon="pi pi-times"
+        severity="secondary"
+        [outlined]="true"
+        type="button"
+        (onClick)="cancel()"
+      />
+      <p-button
+        label="儲存"
+        icon="pi pi-check"
+        severity="success"
+        type="submit"
+        [loading]="saving()"
+      />
+    </div>
+  </div>
+
+  <p-card>
+    <ng-template pTemplate="title">角色資料</ng-template>
+
+    <div class="form-grid">
+      <div class="field">
+        <label for="roleId">角色代碼 <span class="req">*</span></label>
+        <input id="roleId" type="text" pInputText formControlName="roleId" />
+        @if (form.controls.roleId.invalid && form.controls.roleId.touched) {
+          <small class="error">角色代碼為必填</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="roleName">角色名稱 <span class="req">*</span></label>
+        <input id="roleName" type="text" pInputText formControlName="roleName" />
+        @if (form.controls.roleName.invalid && form.controls.roleName.touched) {
+          <small class="error">角色名稱為必填</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="permissionLevel">權限等級 <span class="req">*</span></label>
+        <p-inputNumber
+          inputId="permissionLevel"
+          formControlName="permissionLevel"
+          [useGrouping]="false"
+        />
+        @if (form.controls.permissionLevel.invalid && form.controls.permissionLevel.touched) {
+          <small class="error">權限等級為必填</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="description">描述 <span class="req">*</span></label>
+        <input id="description" type="text" pInputText formControlName="description" />
+        @if (form.controls.description.invalid && form.controls.description.touched) {
+          <small class="error">描述為必填</small>
+        }
+      </div>
+    </div>
+  </p-card>
+
+  <p-card>
+    <ng-template pTemplate="title">使用者</ng-template>
+    <div class="field">
+      <p-multiSelect
+        [options]="users()"
+        formControlName="userIds"
+        optionLabel="label"
+        optionValue="userId"
+        [filter]="true"
+        filterBy="label"
+        [maxSelectedLabels]="9999"
+        appendTo="body"
+        placeholder="選擇使用者"
+        styleClass="w-full"
+      />
+    </div>
+  </p-card>
+</form>
