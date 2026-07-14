@@ -8,6 +8,7 @@ import { environment } from '@env';
 import { LookupService } from './lookup.service';
 import { AppUserLookup } from '@core/models/app-role.model';
 import { PublishStatusLookup } from '@core/models/publish-status.model';
+import { PartnerLookup } from '@core/models/partner.model';
 
 describe('LookupService', () => {
   let service: LookupService;
@@ -47,5 +48,17 @@ describe('LookupService', () => {
     req.flush(statuses);
 
     expect(result?.[0].description).toBe('草稿');
+  });
+
+  it('getPartners GETs the partners lookup', () => {
+    const partners: PartnerLookup[] = [{ pkid: 1, name: '恆逸資訊' }];
+    let result: PartnerLookup[] | undefined;
+    service.getPartners().subscribe((r) => (result = r));
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/api/lookups/partners`);
+    expect(req.request.method).toBe('GET');
+    req.flush(partners);
+
+    expect(result?.[0].name).toBe('恆逸資訊');
   });
 });

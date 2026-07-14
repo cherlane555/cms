@@ -28,4 +28,12 @@ public class LookupRepository : ILookupRepository
             "SELECT pkid, Description FROM PublishStatus ORDER BY pkid ASC",
             cancellationToken: ct));
     }
+
+    public async Task<IEnumerable<PartnerLookup>> GetPartnersAsync(CancellationToken ct = default)
+    {
+        using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        return await conn.QueryAsync<PartnerLookup>(new CommandDefinition(
+            "SELECT pkid, Name FROM Partner ORDER BY DisplayOrder ASC",
+            cancellationToken: ct));
+    }
 }

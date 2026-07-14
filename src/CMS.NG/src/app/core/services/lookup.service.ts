@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '@env';
 import { AppUserLookup } from '@core/models/app-role.model';
 import { PublishStatusLookup } from '@core/models/publish-status.model';
+import { PartnerLookup } from '@core/models/partner.model';
 
 @Injectable({ providedIn: 'root' })
 export class LookupService {
@@ -16,5 +17,9 @@ export class LookupService {
 
   getPublishStatuses(): Observable<PublishStatusLookup[]> {
     return this.http.get<PublishStatusLookup[]>(`${this.baseUrl}/publish-statuses`);
+  }
+
+  getPartners(): Observable<PartnerLookup[]> {
+    return this.http.get<PartnerLookup[]>(`${this.baseUrl}/partners`);
   }
 }

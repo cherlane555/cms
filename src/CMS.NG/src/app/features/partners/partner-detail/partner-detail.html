@@ -1,0 +1,49 @@
+<p-toast />
+
+<div class="page">
+  <div class="page-header">
+    <h2>廠商詳細</h2>
+    <div class="actions">
+      <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" [outlined]="true" (onClick)="back()" />
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" [disabled]="!partner()" />
+    </div>
+  </div>
+
+  @if (partner(); as p) {
+    <p-card>
+      <ng-template pTemplate="title">廠商資料</ng-template>
+      <div class="detail-grid">
+        <div class="item">
+          <span class="label">主代碼</span>
+          <span class="value">{{ p.pkid }}</span>
+        </div>
+        <div class="item">
+          <span class="label">廠商名稱</span>
+          <span class="value">{{ p.name }}</span>
+        </div>
+        <div class="item">
+          <span class="label">關鍵字</span>
+          <span class="value">{{ p.appKey }}</span>
+        </div>
+        <div class="item">
+          <span class="label">顯示順序</span>
+          <span class="value">{{ p.displayOrder }}</span>
+        </div>
+        <div class="item">
+          <span class="label">選單顯示名稱</span>
+          <span class="value">{{ p.nameOnPartnerMenu }}</span>
+        </div>
+        <div class="item">
+          <span class="label">課程頁顯示名稱</span>
+          <span class="value">{{ p.nameOnCourseDetailPage }}</span>
+        </div>
+        <div class="item full">
+          <span class="label">圖片檔名</span>
+          <span class="value">{{ p.imageFilename || '—' }}</span>
+        </div>
+      </div>
+    </p-card>
+  } @else if (!loading()) {
+    <p-card><span class="muted">找不到廠商</span></p-card>
+  }
+</div>

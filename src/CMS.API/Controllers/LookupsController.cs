@@ -30,4 +30,12 @@ public class LookupsController : ControllerBase
         var statuses = await _repository.GetPublishStatusesAsync(ct);
         return Ok(statuses);
     }
+
+    /// <summary>Slim Partner list for FK dropdowns (e.g. Course, Certification).</summary>
+    [HttpGet("partners")]
+    public async Task<ActionResult<IEnumerable<PartnerLookup>>> GetPartners(CancellationToken ct)
+    {
+        var partners = await _repository.GetPartnersAsync(ct);
+        return Ok(partners);
+    }
 }
