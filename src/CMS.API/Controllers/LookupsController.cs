@@ -22,4 +22,12 @@ public class LookupsController : ControllerBase
         var users = await _repository.GetAppUsersAsync(ct);
         return Ok(users);
     }
+
+    /// <summary>Slim PublishStatus list for FK dropdowns (e.g. Course).</summary>
+    [HttpGet("publish-statuses")]
+    public async Task<ActionResult<IEnumerable<PublishStatusLookup>>> GetPublishStatuses(CancellationToken ct)
+    {
+        var statuses = await _repository.GetPublishStatusesAsync(ct);
+        return Ok(statuses);
+    }
 }

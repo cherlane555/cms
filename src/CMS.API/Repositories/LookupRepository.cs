@@ -20,4 +20,12 @@ public class LookupRepository : ILookupRepository
             "SELECT UserId, UserName FROM AppUser ORDER BY UserName ASC",
             cancellationToken: ct));
     }
+
+    public async Task<IEnumerable<PublishStatusLookup>> GetPublishStatusesAsync(CancellationToken ct = default)
+    {
+        using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        return await conn.QueryAsync<PublishStatusLookup>(new CommandDefinition(
+            "SELECT pkid, Description FROM PublishStatus ORDER BY pkid ASC",
+            cancellationToken: ct));
+    }
 }

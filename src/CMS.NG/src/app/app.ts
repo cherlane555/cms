@@ -36,6 +36,7 @@ export class App {
       icon: 'pi pi-shield',
       items: [
         { label: '角色 AppRole', route: '/app-roles' },
+        { label: '發布狀態 PublishStatus', route: '/publish-statuses' },
         { label: '使用者 AppUser' },
       ],
     },

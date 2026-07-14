@@ -1,0 +1,47 @@
+<p-toast />
+
+<div class="page">
+  <div class="page-header">
+    <h2>發布狀態詳細</h2>
+    <div class="actions">
+      <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" [outlined]="true" (onClick)="back()" />
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" [disabled]="!status()" />
+    </div>
+  </div>
+
+  @if (status(); as s) {
+    <p-card>
+      <ng-template pTemplate="title">發布狀態資料</ng-template>
+      <div class="detail-grid">
+        <div class="item">
+          <span class="label">主代碼</span>
+          <span class="value">{{ s.pkid }}</span>
+        </div>
+        <div class="item">
+          <span class="label">狀態描述</span>
+          <span class="value">{{ s.description }}</span>
+        </div>
+        <div class="item">
+          <span class="label">草稿</span>
+          <span class="value">
+            <p-tag [value]="s.isDraft ? '是' : '否'" [severity]="s.isDraft ? 'success' : 'secondary'" />
+          </span>
+        </div>
+        <div class="item">
+          <span class="label">已發布</span>
+          <span class="value">
+            <p-tag [value]="s.isPublished ? '是' : '否'" [severity]="s.isPublished ? 'success' : 'secondary'" />
+          </span>
+        </div>
+        <div class="item">
+          <span class="label">已停用</span>
+          <span class="value">
+            <p-tag [value]="s.isDiscontinued ? '是' : '否'" [severity]="s.isDiscontinued ? 'success' : 'secondary'" />
+          </span>
+        </div>
+      </div>
+    </p-card>
+  } @else if (!loading()) {
+    <p-card><span class="muted">找不到發布狀態</span></p-card>
+  }
+</div>
