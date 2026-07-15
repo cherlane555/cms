@@ -23,8 +23,13 @@ folder map, testing approach, and full patterns: see [docs/setup-notes.md](docs/
 - **CourseGroup:** ⚠️ `FK_Course_CourseGroup` is **ON DELETE CASCADE** — deleting a group deletes every
   Course under it (1084 courses exist, all grouped; only 25 of 215 groups are unreferenced). Not
   guarded in code; delete confirm warns instead. Add a real dependency check when building Course.
-  `PartnerCourseGroup` is payload-bearing (own pkid/DisplayOrder/Description) → an entity, **not** an
-  n-n junction, for both CourseGroup and Partner.
+- **n-n test:** a table is an n-n junction only if its PK is a composite of exactly two FK columns and
+  it has no other columns. Own `pkid` IDENTITY or payload cols → **child entity, not n-n** — the
+  `/crud` skill's name-based n-n heuristic over-matches these. Entities, *not* junctions:
+  `PartnerCourseGroup` (CourseGroup/Partner), `CourseFAQ` / `CourseRelatedLink` / `HotCourse` (Course).
+- **Course:** FKs → Partner / CourseGroup / PublishStatus — all three lookups already exist. True n-n
+  is only `CourseInCertification` (→ Certification) and `CourseJobCategories` (→ JobCategory); both
+  need new `certifications` / `job-categories` lookups.
 - Lookup routes are **kebab-case plural** (`/api/lookups/course-groups`), not `/api/Lookups/{Table}`.
 - Sort fallback when a table has no `DisplayOrder`: pick the natural order per table (PublishStatus →
   `pkid ASC`; CourseGroup → `Description ASC`), not a blind `pkid DESC`.
