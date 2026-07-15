@@ -1,5 +1,6 @@
 using CMS.API.Auditing;
 using CMS.API.Data;
+using CMS.API.Middleware;
 using CMS.API.Repositories;
 using CMS.API.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -77,6 +78,9 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+// First in the pipeline so it catches unhandled exceptions from everything downstream.
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Swagger UI at /swagger
 app.UseSwagger();

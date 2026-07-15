@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { MessageService } from 'primeng/api';
 import { App } from './app';
 
 /** Unsigned JWT carrying the given roles, as the API emits them. */
@@ -32,6 +33,7 @@ describe('App', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideNoopAnimations(),
+        MessageService, // the global <p-toast> in the template needs it
       ],
     }).compileComponents();
   });
