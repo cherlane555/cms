@@ -26,3 +26,6 @@ Thumbs.db
 
 # ---- Env / secrets ----
 *.local
+
+# ---- Claude Code (local, session-bootstrapped skills) ----
+.claude/skills/verify/
