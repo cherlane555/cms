@@ -20,4 +20,15 @@ folder map, testing approach, and full patterns: see [docs/setup-notes.md](docs/
   required controls, `p-multiSelect` for n-n, disable PK in edit. Add nav in `app.ts`/`app.html`.
 - **AppRole:** PK is string `RoleId` (`pkid` is a display surrogate). N-N with AppUser via AppUserRole
   → list shows `使用者數` count; form has a users multi-select (`GET /api/lookups/app-users`).
+- **CourseGroup:** ⚠️ `FK_Course_CourseGroup` is **ON DELETE CASCADE** — deleting a group deletes every
+  Course under it (1084 courses exist, all grouped; only 25 of 215 groups are unreferenced). Not
+  guarded in code; delete confirm warns instead. Add a real dependency check when building Course.
+  `PartnerCourseGroup` is payload-bearing (own pkid/DisplayOrder/Description) → an entity, **not** an
+  n-n junction, for both CourseGroup and Partner.
+- Lookup routes are **kebab-case plural** (`/api/lookups/course-groups`), not `/api/Lookups/{Table}`.
+- Sort fallback when a table has no `DisplayOrder`: pick the natural order per table (PublishStatus →
+  `pkid ASC`; CourseGroup → `Description ASC`), not a blind `pkid DESC`.
+- Features defer Primary-Foreign nav buttons until the referenced feature exists (avoids dead links).
+- No RowAudit / DateOnly handlers / sticky-toolbar in this codebase — the `/crud` skill mentions them,
+  but they don't exist here. Ignore those steps.
 - UI text is Traditional Chinese.

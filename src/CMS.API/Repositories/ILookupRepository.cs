@@ -7,4 +7,5 @@ public interface ILookupRepository
     Task<IEnumerable<AppUserLookup>> GetAppUsersAsync(CancellationToken ct = default);
     Task<IEnumerable<PublishStatusLookup>> GetPublishStatusesAsync(CancellationToken ct = default);
     Task<IEnumerable<PartnerLookup>> GetPartnersAsync(CancellationToken ct = default);
+    Task<IEnumerable<CourseGroupLookup>> GetCourseGroupsAsync(CancellationToken ct = default);
 }

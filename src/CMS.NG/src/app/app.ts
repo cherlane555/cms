@@ -28,7 +28,10 @@ export class App {
     {
       label: '課程管理 Course',
       icon: 'pi pi-folder',
-      items: [{ label: '合作廠商 Partner', route: '/partners' }],
+      items: [
+        { label: '合作廠商 Partner', route: '/partners' },
+        { label: '課程群組 CourseGroup', route: '/course-groups' },
+      ],
     },
     { label: '說明會 Seminar', icon: 'pi pi-comments', items: [] },
     { label: '活動管理 Promotion', icon: 'pi pi-megaphone', items: [] },

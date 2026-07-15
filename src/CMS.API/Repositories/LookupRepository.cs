@@ -36,4 +36,12 @@ public class LookupRepository : ILookupRepository
             "SELECT pkid, Name FROM Partner ORDER BY DisplayOrder ASC",
             cancellationToken: ct));
     }
+
+    public async Task<IEnumerable<CourseGroupLookup>> GetCourseGroupsAsync(CancellationToken ct = default)
+    {
+        using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        return await conn.QueryAsync<CourseGroupLookup>(new CommandDefinition(
+            "SELECT pkid, Description FROM CourseGroup ORDER BY Description ASC",
+            cancellationToken: ct));
+    }
 }

@@ -38,4 +38,12 @@ public class LookupsController : ControllerBase
         var partners = await _repository.GetPartnersAsync(ct);
         return Ok(partners);
     }
+
+    /// <summary>Slim CourseGroup list for FK dropdowns (e.g. Course, PartnerCourseGroup).</summary>
+    [HttpGet("course-groups")]
+    public async Task<ActionResult<IEnumerable<CourseGroupLookup>>> GetCourseGroups(CancellationToken ct)
+    {
+        var groups = await _repository.GetCourseGroupsAsync(ct);
+        return Ok(groups);
+    }
 }

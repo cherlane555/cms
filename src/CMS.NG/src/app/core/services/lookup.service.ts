@@ -5,6 +5,7 @@ import { environment } from '@env';
 import { AppUserLookup } from '@core/models/app-role.model';
 import { PublishStatusLookup } from '@core/models/publish-status.model';
 import { PartnerLookup } from '@core/models/partner.model';
+import { CourseGroupLookup } from '@core/models/course-group.model';
 
 @Injectable({ providedIn: 'root' })
 export class LookupService {
@@ -21,5 +22,9 @@ export class LookupService {
 
   getPartners(): Observable<PartnerLookup[]> {
     return this.http.get<PartnerLookup[]>(`${this.baseUrl}/partners`);
+  }
+
+  getCourseGroups(): Observable<CourseGroupLookup[]> {
+    return this.http.get<CourseGroupLookup[]>(`${this.baseUrl}/course-groups`);
   }
 }

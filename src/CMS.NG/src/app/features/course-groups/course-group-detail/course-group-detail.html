@@ -1,0 +1,29 @@
+<p-toast />
+
+<div class="page">
+  <div class="page-header">
+    <h2>課程群組詳細</h2>
+    <div class="actions">
+      <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" [outlined]="true" (onClick)="back()" />
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" [disabled]="!group()" />
+    </div>
+  </div>
+
+  @if (group(); as g) {
+    <p-card>
+      <ng-template pTemplate="title">課程群組資料</ng-template>
+      <div class="detail-grid">
+        <div class="item">
+          <span class="label">主代碼</span>
+          <span class="value">{{ g.pkid }}</span>
+        </div>
+        <div class="item">
+          <span class="label">群組描述</span>
+          <span class="value">{{ g.description }}</span>
+        </div>
+      </div>
+    </p-card>
+  } @else if (!loading()) {
+    <p-card><span class="muted">找不到課程群組</span></p-card>
+  }
+</div>
