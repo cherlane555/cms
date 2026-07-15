@@ -1,3 +1,4 @@
+using CMS.API.Auditing;
 using CMS.API.Data;
 using CMS.API.Models;
 using Dapper;
@@ -6,11 +7,15 @@ namespace CMS.API.Repositories;
 
 public class AppRoleRepository : IAppRoleRepository
 {
-    private readonly IDbConnectionFactory _factory;
+    private const string TableName = "AppRole";
 
-    public AppRoleRepository(IDbConnectionFactory factory)
+    private readonly IDbConnectionFactory _factory;
+    private readonly IRowAuditWriter _audit;
+
+    public AppRoleRepository(IDbConnectionFactory factory, IRowAuditWriter audit)
     {
         _factory = factory;
+        _audit = audit;
     }
 
     private const string BaseSelect = @"
@@ -98,9 +103,7 @@ SELECT CAST(SCOPE_IDENTITY() AS int);",
 
         await SyncUsersAsync(conn, tx, request.RoleId, request.UserIds, ct);
 
-        tx.Commit();
-
-        return new AppRole
+        var created = new AppRole
         {
             Pkid = pkid,
             RoleId = request.RoleId,
@@ -110,12 +113,26 @@ SELECT CAST(SCOPE_IDENTITY() AS int);",
             UserCount = request.UserIds?.Count ?? 0,
             UserIds = request.UserIds ?? new List<string>()
         };
+
+        await _audit.LogInsertAsync(TableName, created, conn, tx, ct);
+        tx.Commit();
+
+        return created;
     }
 
     public async Task<bool> UpdateAsync(AppRoleRequest request, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
         using var tx = conn.BeginTransaction();
+
+        // Load the "before" row first so the audit can list exactly the changed columns.
+        var before = await conn.QuerySingleOrDefaultAsync<AppRole>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE r.RoleId = @RoleId",
+            new { request.RoleId }, tx, cancellationToken: ct));
+        if (before is null)
+        {
+            return false;
+        }
 
         var affected = await conn.ExecuteAsync(new CommandDefinition(@"
 UPDATE AppRole
@@ -139,6 +156,20 @@ WHERE RoleId = @RoleId;",
 
         await SyncUsersAsync(conn, tx, request.RoleId, request.UserIds, ct);
 
+        // The "after" image: the before row with the updatable columns applied. UserCount /
+        // UserIds are copied from before so association changes don't show up as columns.
+        var after = new AppRole
+        {
+            Pkid = before.Pkid,
+            RoleId = before.RoleId,
+            RoleName = request.RoleName,
+            PermissionLevel = request.PermissionLevel,
+            Description = request.Description,
+            UserCount = before.UserCount,
+            UserIds = before.UserIds
+        };
+
+        await _audit.LogUpdateAsync(TableName, before, after, conn, tx, ct);
         tx.Commit();
         return true;
     }
@@ -148,6 +179,15 @@ WHERE RoleId = @RoleId;",
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
         using var tx = conn.BeginTransaction();
 
+        // Load the row first so its first string column is still available for the audit.
+        var row = await conn.QuerySingleOrDefaultAsync<AppRole>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE r.RoleId = @RoleId",
+            new { RoleId = roleId }, tx, cancellationToken: ct));
+        if (row is null)
+        {
+            return false;
+        }
+
         await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM AppUserRole WHERE RoleId = @RoleId",
             new { RoleId = roleId }, tx, cancellationToken: ct));
@@ -155,9 +195,14 @@ WHERE RoleId = @RoleId;",
         var affected = await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM AppRole WHERE RoleId = @RoleId",
             new { RoleId = roleId }, tx, cancellationToken: ct));
+        if (affected == 0)
+        {
+            return false;
+        }
 
+        await _audit.LogDeleteAsync(TableName, row, conn, tx, ct);
         tx.Commit();
-        return affected > 0;
+        return true;
     }
 
     // n-n sync: delete-then-reinsert on the same connection/transaction.

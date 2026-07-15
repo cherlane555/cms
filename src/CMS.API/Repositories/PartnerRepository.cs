@@ -1,3 +1,4 @@
+using CMS.API.Auditing;
 using CMS.API.Data;
 using CMS.API.Models;
 using Dapper;
@@ -6,11 +7,15 @@ namespace CMS.API.Repositories;
 
 public class PartnerRepository : IPartnerRepository
 {
-    private readonly IDbConnectionFactory _factory;
+    private const string TableName = "Partner";
 
-    public PartnerRepository(IDbConnectionFactory factory)
+    private readonly IDbConnectionFactory _factory;
+    private readonly IRowAuditWriter _audit;
+
+    public PartnerRepository(IDbConnectionFactory factory, IRowAuditWriter audit)
     {
         _factory = factory;
+        _audit = audit;
     }
 
     private const string BaseSelect = @"
@@ -55,6 +60,7 @@ FROM Partner p";
     public async Task<Partner> CreateAsync(PartnerRequest request, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
 
         // pkid is smallint IDENTITY: excluded from the column list, read back via SCOPE_IDENTITY().
         var pkid = await conn.ExecuteScalarAsync<short>(new CommandDefinition(@"
@@ -69,9 +75,9 @@ SELECT CAST(SCOPE_IDENTITY() AS smallint);",
                 request.NameOnCourseDetailPage,
                 request.DisplayOrder,
                 request.ImageFilename
-            }, cancellationToken: ct));
+            }, tx, cancellationToken: ct));
 
-        return new Partner
+        var created = new Partner
         {
             Pkid = pkid,
             Name = request.Name,
@@ -81,11 +87,27 @@ SELECT CAST(SCOPE_IDENTITY() AS smallint);",
             DisplayOrder = request.DisplayOrder,
             ImageFilename = request.ImageFilename
         };
+
+        await _audit.LogInsertAsync(TableName, created, conn, tx, ct);
+        tx.Commit();
+
+        return created;
     }
 
     public async Task<bool> UpdateAsync(PartnerRequest request, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
+
+        // Load the "before" row first so the audit can list exactly the changed columns.
+        var before = await conn.QuerySingleOrDefaultAsync<Partner>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE p.pkid = @Pkid",
+            new { request.Pkid }, tx, cancellationToken: ct));
+        if (before is null)
+        {
+            return false;
+        }
+
         var affected = await conn.ExecuteAsync(new CommandDefinition(@"
 UPDATE Partner
 SET Name = @Name,
@@ -104,17 +126,54 @@ WHERE pkid = @Pkid;",
                 request.NameOnCourseDetailPage,
                 request.DisplayOrder,
                 request.ImageFilename
-            }, cancellationToken: ct));
+            }, tx, cancellationToken: ct));
 
-        return affected > 0;
+        if (affected == 0)
+        {
+            return false;
+        }
+
+        await _audit.LogUpdateAsync(TableName, before, ApplyRequest(before, request), conn, tx, ct);
+        tx.Commit();
+        return true;
     }
 
     public async Task<bool> DeleteAsync(short pkid, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
+
+        // Load the row first so its first string column is still available for the audit.
+        var row = await conn.QuerySingleOrDefaultAsync<Partner>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE p.pkid = @Pkid",
+            new { Pkid = pkid }, tx, cancellationToken: ct));
+        if (row is null)
+        {
+            return false;
+        }
+
         var affected = await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM Partner WHERE pkid = @Pkid",
-            new { Pkid = pkid }, cancellationToken: ct));
-        return affected > 0;
+            new { Pkid = pkid }, tx, cancellationToken: ct));
+        if (affected == 0)
+        {
+            return false;
+        }
+
+        await _audit.LogDeleteAsync(TableName, row, conn, tx, ct);
+        tx.Commit();
+        return true;
     }
+
+    /// <summary>The "after" image for the audit diff: the before row with the updatable columns applied.</summary>
+    private static Partner ApplyRequest(Partner before, PartnerRequest request) => new()
+    {
+        Pkid = before.Pkid,
+        Name = request.Name,
+        AppKey = request.AppKey,
+        NameOnPartnerMenu = request.NameOnPartnerMenu,
+        NameOnCourseDetailPage = request.NameOnCourseDetailPage,
+        DisplayOrder = request.DisplayOrder,
+        ImageFilename = request.ImageFilename
+    };
 }

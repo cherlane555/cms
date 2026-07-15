@@ -1,3 +1,4 @@
+using CMS.API.Auditing;
 using CMS.API.Data;
 using CMS.API.Repositories;
 using CMS.API.Security;
@@ -52,6 +53,10 @@ builder.Services.AddScoped<IFeaturedPromoItemRepository, FeaturedPromoItemReposi
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<ILookupRepository, LookupRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+
+// Row audit (cross-cutting): reads the signed-in user from the current request's JWT.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IRowAuditWriter, RowAuditWriter>();
 
 // Auth / JWT
 builder.Services.AddSingleton<ITokenService, TokenService>();

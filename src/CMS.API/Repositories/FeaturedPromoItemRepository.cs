@@ -1,3 +1,4 @@
+using CMS.API.Auditing;
 using CMS.API.Data;
 using CMS.API.Models;
 using Dapper;
@@ -6,11 +7,15 @@ namespace CMS.API.Repositories;
 
 public class FeaturedPromoItemRepository : IFeaturedPromoItemRepository
 {
-    private readonly IDbConnectionFactory _factory;
+    private const string TableName = "FeaturedPromoItem";
 
-    public FeaturedPromoItemRepository(IDbConnectionFactory factory)
+    private readonly IDbConnectionFactory _factory;
+    private readonly IRowAuditWriter _audit;
+
+    public FeaturedPromoItemRepository(IDbConnectionFactory factory, IRowAuditWriter audit)
     {
         _factory = factory;
+        _audit = audit;
     }
 
     private const string BaseSelect = @"
@@ -75,6 +80,7 @@ WHERE ScheduleOn = @ScheduleOn AND TrainingCenter_pkid = @TrainingCenterPkid
     public async Task<FeaturedPromoItem> CreateAsync(FeaturedPromoItemRequest request, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
 
         var pkid = await conn.ExecuteScalarAsync<int>(new CommandDefinition(@"
 INSERT INTO FeaturedPromoItem (ScheduleOn, TrainingCenter_pkid, Slot, Promotion_pkid, Topic, Description)
@@ -88,18 +94,33 @@ SELECT CAST(SCOPE_IDENTITY() AS int);",
                 request.PromotionPkid,
                 request.Topic,
                 request.Description
-            }, cancellationToken: ct));
+            }, tx, cancellationToken: ct));
 
         // Re-select to include the joined PromoCode.
         var created = await conn.QuerySingleAsync<FeaturedPromoItem>(new CommandDefinition(
             $"{BaseSelect}\nWHERE f.pkid = @Pkid",
-            new { Pkid = pkid }, cancellationToken: ct));
+            new { Pkid = pkid }, tx, cancellationToken: ct));
+
+        await _audit.LogInsertAsync(TableName, created, conn, tx, ct);
+        tx.Commit();
+
         return created;
     }
 
     public async Task<bool> UpdateAsync(FeaturedPromoItemRequest request, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
+
+        // Load the "before" row first so the audit can list exactly the changed columns.
+        var before = await conn.QuerySingleOrDefaultAsync<FeaturedPromoItem>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE f.pkid = @Pkid",
+            new { request.Pkid }, tx, cancellationToken: ct));
+        if (before is null)
+        {
+            return false;
+        }
+
         var affected = await conn.ExecuteAsync(new CommandDefinition(@"
 UPDATE FeaturedPromoItem
 SET ScheduleOn = @ScheduleOn,
@@ -118,17 +139,57 @@ WHERE pkid = @Pkid;",
                 request.PromotionPkid,
                 request.Topic,
                 request.Description
-            }, cancellationToken: ct));
-        return affected > 0;
+            }, tx, cancellationToken: ct));
+
+        if (affected == 0)
+        {
+            return false;
+        }
+
+        // The "after" image: the before row with the updatable columns applied. PromoCode is a
+        // joined label copied from before so it never shows up as a changed column.
+        var after = new FeaturedPromoItem
+        {
+            Pkid = before.Pkid,
+            ScheduleOn = request.ScheduleOn.Date,
+            TrainingCenterPkid = request.TrainingCenterPkid,
+            Slot = request.Slot,
+            PromotionPkid = request.PromotionPkid,
+            Topic = request.Topic,
+            Description = request.Description,
+            PromoCode = before.PromoCode
+        };
+
+        await _audit.LogUpdateAsync(TableName, before, after, conn, tx, ct);
+        tx.Commit();
+        return true;
     }
 
     public async Task<bool> DeleteAsync(int pkid, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
+
+        // Load the row first so its first string column is still available for the audit.
+        var row = await conn.QuerySingleOrDefaultAsync<FeaturedPromoItem>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE f.pkid = @Pkid",
+            new { Pkid = pkid }, tx, cancellationToken: ct));
+        if (row is null)
+        {
+            return false;
+        }
+
         var affected = await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM FeaturedPromoItem WHERE pkid = @Pkid",
-            new { Pkid = pkid }, cancellationToken: ct));
-        return affected > 0;
+            new { Pkid = pkid }, tx, cancellationToken: ct));
+        if (affected == 0)
+        {
+            return false;
+        }
+
+        await _audit.LogDeleteAsync(TableName, row, conn, tx, ct);
+        tx.Commit();
+        return true;
     }
 
     private sealed class SlotRow
@@ -173,13 +234,45 @@ WHERE ScheduleOn = @ScheduleOn AND TrainingCenter_pkid = @TrainingCenterPkid AND
             await conn.ExecuteAsync(new CommandDefinition(
                 "UPDATE FeaturedPromoItem SET Slot = @Slot WHERE pkid = @Pkid",
                 new { Pkid = occupantPkid.Value, row.Slot }, tx, cancellationToken: ct));
+
+            await LogSlotChangeAsync(conn, tx, occupantPkid.Value, (byte)target, ct);
         }
 
         await conn.ExecuteAsync(new CommandDefinition(
             "UPDATE FeaturedPromoItem SET Slot = @Slot WHERE pkid = @Pkid",
             new { Pkid = pkid, Slot = target }, tx, cancellationToken: ct));
 
+        await LogSlotChangeAsync(conn, tx, pkid, row.Slot, ct);
+
         tx.Commit();
         return MoveSlotResult.Moved;
+    }
+
+    /// <summary>Audits a slot move as an Update whose before/after differ only in Slot.</summary>
+    private async Task LogSlotChangeAsync(
+        System.Data.IDbConnection conn,
+        System.Data.IDbTransaction tx,
+        int pkid,
+        byte oldSlot,
+        CancellationToken ct)
+    {
+        // The row was already updated: re-select it (new Slot) and reconstruct the before image.
+        var after = await conn.QuerySingleAsync<FeaturedPromoItem>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE f.pkid = @Pkid",
+            new { Pkid = pkid }, tx, cancellationToken: ct));
+
+        var before = new FeaturedPromoItem
+        {
+            Pkid = after.Pkid,
+            ScheduleOn = after.ScheduleOn,
+            TrainingCenterPkid = after.TrainingCenterPkid,
+            Slot = oldSlot,
+            PromotionPkid = after.PromotionPkid,
+            Topic = after.Topic,
+            Description = after.Description,
+            PromoCode = after.PromoCode
+        };
+
+        await _audit.LogUpdateAsync(TableName, before, after, conn, tx, ct);
     }
 }

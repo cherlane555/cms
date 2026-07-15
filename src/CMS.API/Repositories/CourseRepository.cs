@@ -1,3 +1,4 @@
+using CMS.API.Auditing;
 using CMS.API.Data;
 using CMS.API.Models;
 using Dapper;
@@ -6,11 +7,15 @@ namespace CMS.API.Repositories;
 
 public class CourseRepository : ICourseRepository
 {
-    private readonly IDbConnectionFactory _factory;
+    private const string TableName = "Course";
 
-    public CourseRepository(IDbConnectionFactory factory)
+    private readonly IDbConnectionFactory _factory;
+    private readonly IRowAuditWriter _audit;
+
+    public CourseRepository(IDbConnectionFactory factory, IRowAuditWriter audit)
     {
         _factory = factory;
+        _audit = audit;
     }
 
     // CourseGroup_pkid is nullable -> LEFT JOIN.
@@ -112,6 +117,9 @@ SELECT CAST(SCOPE_IDENTITY() AS int);",
 
         await SyncAssociationsAsync(conn, tx, pkid, request, ct);
 
+        // Audit inside the same transaction; the FK labels are display-only, so an entity
+        // built from the request (Title first) is enough for the audit row.
+        await _audit.LogInsertAsync(TableName, ApplyRequest(new Course { Pkid = pkid }, request), conn, tx, ct);
         tx.Commit();
 
         return (await GetByIdAsync(pkid, ct))!;
@@ -121,6 +129,15 @@ SELECT CAST(SCOPE_IDENTITY() AS int);",
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
         using var tx = conn.BeginTransaction();
+
+        // Load the "before" row first so the audit can list exactly the changed columns.
+        var before = await conn.QuerySingleOrDefaultAsync<Course>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE c.pkid = @Pkid",
+            new { request.Pkid }, tx, cancellationToken: ct));
+        if (before is null)
+        {
+            return false;
+        }
 
         var affected = await conn.ExecuteAsync(new CommandDefinition(@"
 UPDATE Course
@@ -158,6 +175,7 @@ WHERE pkid = @Pkid;",
 
         await SyncAssociationsAsync(conn, tx, request.Pkid, request, ct);
 
+        await _audit.LogUpdateAsync(TableName, before, ApplyRequest(before, request), conn, tx, ct);
         tx.Commit();
         return true;
     }
@@ -176,11 +194,66 @@ SELECT (SELECT COUNT(*) FROM CourseFAQ WHERE Course_pkid = @Pkid)
     {
         // CourseInCertification / CourseJobCategories rows go via ON DELETE CASCADE.
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
+
+        // Load the row first so its first string column is still available for the audit.
+        var row = await conn.QuerySingleOrDefaultAsync<Course>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE c.pkid = @Pkid",
+            new { Pkid = pkid }, tx, cancellationToken: ct));
+        if (row is null)
+        {
+            return false;
+        }
+
         var affected = await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM Course WHERE pkid = @Pkid",
-            new { Pkid = pkid }, cancellationToken: ct));
-        return affected > 0;
+            new { Pkid = pkid }, tx, cancellationToken: ct));
+        if (affected == 0)
+        {
+            return false;
+        }
+
+        await _audit.LogDeleteAsync(TableName, row, conn, tx, ct);
+        tx.Commit();
+        return true;
     }
+
+    /// <summary>
+    /// The "after" image for the audit diff: the before row with the updatable columns applied.
+    /// FK labels and n-n lists are copied from before so only real Course columns show up as changed.
+    /// </summary>
+    private static Course ApplyRequest(Course before, CourseRequest request) => new()
+    {
+        Pkid = before.Pkid,
+        Title = request.Title,
+        OfficialTitle = request.OfficialTitle,
+        CourseId = request.CourseId,
+        ProdCourseId = request.ProdCourseId,
+        FriendlyUrl = request.FriendlyUrl,
+        DisplayOrder = request.DisplayOrder,
+        PartnerPkid = request.PartnerPkid,
+        CourseGroupPkid = request.CourseGroupPkid,
+        PublishStatusPkid = request.PublishStatusPkid,
+        ScheduleOn = request.ScheduleOn.Date,
+        ScheduleOff = request.ScheduleOff.Date,
+        Hour = request.Hour,
+        ListPrice = request.ListPrice,
+        LearningCredit = request.LearningCredit,
+        Material = request.Material,
+        Objective = request.Objective,
+        Target = request.Target,
+        Prerequisites = request.Prerequisites,
+        Outline = request.Outline,
+        TowardCertOrExam = request.TowardCertOrExam,
+        Note = request.Note,
+        OtherInfo = request.OtherInfo,
+        CanRepeat = request.CanRepeat,
+        PartnerName = before.PartnerName,
+        CourseGroupDescription = before.CourseGroupDescription,
+        PublishStatusDescription = before.PublishStatusDescription,
+        CertificationPkids = before.CertificationPkids,
+        JobCategoryPkids = before.JobCategoryPkids
+    };
 
     private static object ToParams(CourseRequest request) => new
     {

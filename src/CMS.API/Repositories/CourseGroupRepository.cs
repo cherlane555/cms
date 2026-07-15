@@ -1,3 +1,4 @@
+using CMS.API.Auditing;
 using CMS.API.Data;
 using CMS.API.Models;
 using Dapper;
@@ -6,11 +7,15 @@ namespace CMS.API.Repositories;
 
 public class CourseGroupRepository : ICourseGroupRepository
 {
-    private readonly IDbConnectionFactory _factory;
+    private const string TableName = "CourseGroup";
 
-    public CourseGroupRepository(IDbConnectionFactory factory)
+    private readonly IDbConnectionFactory _factory;
+    private readonly IRowAuditWriter _audit;
+
+    public CourseGroupRepository(IDbConnectionFactory factory, IRowAuditWriter audit)
     {
         _factory = factory;
+        _audit = audit;
     }
 
     private const string BaseSelect = @"
@@ -53,31 +58,56 @@ FROM CourseGroup g";
     public async Task<CourseGroup> CreateAsync(CourseGroupRequest request, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
 
         // pkid is smallint IDENTITY: excluded from the column list, read back via SCOPE_IDENTITY().
         var pkid = await conn.ExecuteScalarAsync<short>(new CommandDefinition(@"
 INSERT INTO CourseGroup (Description)
 VALUES (@Description);
 SELECT CAST(SCOPE_IDENTITY() AS smallint);",
-            new { request.Description }, cancellationToken: ct));
+            new { request.Description }, tx, cancellationToken: ct));
 
-        return new CourseGroup
+        var created = new CourseGroup
         {
             Pkid = pkid,
             Description = request.Description
         };
+
+        await _audit.LogInsertAsync(TableName, created, conn, tx, ct);
+        tx.Commit();
+
+        return created;
     }
 
     public async Task<bool> UpdateAsync(CourseGroupRequest request, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
+
+        // Load the "before" row first so the audit can list exactly the changed columns.
+        var before = await conn.QuerySingleOrDefaultAsync<CourseGroup>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE g.pkid = @Pkid",
+            new { request.Pkid }, tx, cancellationToken: ct));
+        if (before is null)
+        {
+            return false;
+        }
+
         var affected = await conn.ExecuteAsync(new CommandDefinition(@"
 UPDATE CourseGroup
 SET Description = @Description
 WHERE pkid = @Pkid;",
-            new { request.Pkid, request.Description }, cancellationToken: ct));
+            new { request.Pkid, request.Description }, tx, cancellationToken: ct));
 
-        return affected > 0;
+        if (affected == 0)
+        {
+            return false;
+        }
+
+        var after = new CourseGroup { Pkid = before.Pkid, Description = request.Description };
+        await _audit.LogUpdateAsync(TableName, before, after, conn, tx, ct);
+        tx.Commit();
+        return true;
     }
 
     public async Task<int> CountCoursesAsync(short pkid, CancellationToken ct = default)
@@ -94,9 +124,27 @@ WHERE pkid = @Pkid;",
     public async Task<bool> DeleteAsync(short pkid, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
+
+        // Load the row first so its first string column is still available for the audit.
+        var row = await conn.QuerySingleOrDefaultAsync<CourseGroup>(new CommandDefinition(
+            $"{BaseSelect}\nWHERE g.pkid = @Pkid",
+            new { Pkid = pkid }, tx, cancellationToken: ct));
+        if (row is null)
+        {
+            return false;
+        }
+
         var affected = await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM CourseGroup WHERE pkid = @Pkid",
-            new { Pkid = pkid }, cancellationToken: ct));
-        return affected > 0;
+            new { Pkid = pkid }, tx, cancellationToken: ct));
+        if (affected == 0)
+        {
+            return false;
+        }
+
+        await _audit.LogDeleteAsync(TableName, row, conn, tx, ct);
+        tx.Commit();
+        return true;
     }
 }
