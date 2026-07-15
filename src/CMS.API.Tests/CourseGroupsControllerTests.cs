@@ -179,6 +179,7 @@ public class CourseGroupsControllerTests
     [Fact]
     public async Task Delete_Existing_ReturnsNoContent()
     {
+        _repo.Setup(r => r.CountCoursesAsync((short)1, It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _repo.Setup(r => r.DeleteAsync((short)1, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var result = await CreateController().Delete(1, CancellationToken.None);
@@ -189,6 +190,7 @@ public class CourseGroupsControllerTests
     [Fact]
     public async Task Delete_Missing_ReturnsNotFound()
     {
+        _repo.Setup(r => r.CountCoursesAsync((short)99, It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _repo.Setup(r => r.DeleteAsync((short)99, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         var result = await CreateController().Delete(99, CancellationToken.None);

@@ -1,5 +1,6 @@
 using CMS.API.Data;
 using CMS.API.Repositories;
+using CMS.API.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +46,10 @@ builder.Services.AddScoped<IPublishStatusRepository, PublishStatusRepository>();
 builder.Services.AddScoped<IPartnerRepository, PartnerRepository>();
 builder.Services.AddScoped<ICourseGroupRepository, CourseGroupRepository>();
 builder.Services.AddScoped<ILookupRepository, LookupRepository>();
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+
+// Auth / JWT
+builder.Services.AddSingleton<ITokenService, TokenService>();
 
 var app = builder.Build();
 

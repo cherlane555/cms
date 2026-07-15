@@ -9,5 +9,7 @@ public interface ICourseGroupRepository
     Task<CourseGroup?> GetByIdAsync(short pkid, CancellationToken ct = default);
     Task<CourseGroup> CreateAsync(CourseGroupRequest request, CancellationToken ct = default);
     Task<bool> UpdateAsync(CourseGroupRequest request, CancellationToken ct = default);
+    /// <summary>Courses filed under the group — a delete cascades onto them, so callers must check first.</summary>
+    Task<int> CountCoursesAsync(short pkid, CancellationToken ct = default);
     Task<bool> DeleteAsync(short pkid, CancellationToken ct = default);
 }

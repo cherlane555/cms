@@ -78,12 +78,18 @@ public class CourseGroupsController : ControllerBase
     }
 
     /// <summary>
-    /// Delete a course group by pkid. NOTE: FK_Course_CourseGroup is ON DELETE CASCADE — every Course
-    /// filed under this group is deleted with it.
+    /// Delete a course group by pkid. FK_Course_CourseGroup is ON DELETE CASCADE, so a delete
+    /// would silently take every Course in the group with it — blocked (409) while courses exist.
     /// </summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(short id, CancellationToken ct)
     {
+        var courseCount = await _repository.CountCoursesAsync(id, ct);
+        if (courseCount > 0)
+        {
+            return Conflict($"CourseGroup {id} still contains {courseCount} course(s); deleting it would cascade-delete them.");
+        }
+
         var deleted = await _repository.DeleteAsync(id, ct);
         return deleted ? NoContent() : NotFound();
     }

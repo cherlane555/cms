@@ -80,9 +80,17 @@ WHERE pkid = @Pkid;",
         return affected > 0;
     }
 
+    public async Task<int> CountCoursesAsync(short pkid, CancellationToken ct = default)
+    {
+        using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM Course WHERE CourseGroup_pkid = @Pkid",
+            new { Pkid = pkid }, cancellationToken: ct));
+    }
+
     // NOTE: FK_Course_CourseGroup is ON DELETE CASCADE — deleting a group also deletes every Course
-    // filed under it. FK_PartnerCourseGroup_CourseGroup has no cascade, so a group still referenced
-    // there fails with SqlException 547. Neither is special-cased here; see spec/course/CourseGroup.md.
+    // filed under it (the controller guards via CountCoursesAsync). FK_PartnerCourseGroup_CourseGroup
+    // has no cascade, so a group still referenced there fails with SqlException 547.
     public async Task<bool> DeleteAsync(short pkid, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
