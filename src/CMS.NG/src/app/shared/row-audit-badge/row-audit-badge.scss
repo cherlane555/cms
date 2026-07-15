@@ -1,0 +1,65 @@
+.row-audit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--p-content-border-color, #d1d5db);
+  border-radius: 6px;
+  background: var(--p-content-background, #fff);
+  color: var(--p-text-color, #374151);
+  font-size: 0.875rem;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--p-content-hover-background, #f3f4f6);
+  }
+
+  .badge-label {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .badge-latest {
+    color: var(--p-text-muted-color, #6b7280);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 22rem;
+  }
+
+  .badge-empty {
+    font-style: italic;
+  }
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--p-content-border-color, #e5e7eb);
+    vertical-align: top;
+  }
+
+  th {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .nowrap {
+    white-space: nowrap;
+  }
+
+  .desc {
+    word-break: break-word;
+  }
+}
+
+.empty-state {
+  color: var(--p-text-muted-color, #6b7280);
+  margin: 0.5rem 0;
+}

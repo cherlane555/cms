@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { of, throwError } from 'rxjs';
@@ -47,6 +49,8 @@ describe('FeaturedPromoItemForm', () => {
     await TestBed.configureTestingModule({
       imports: [FeaturedPromoItemForm],
       providers: [
+      provideHttpClient(),
+      provideHttpClientTesting(),
         provideNoopAnimations(),
         { provide: FeaturedPromoItemService, useValue: serviceSpy },
         { provide: LookupService, useValue: lookupSpy },

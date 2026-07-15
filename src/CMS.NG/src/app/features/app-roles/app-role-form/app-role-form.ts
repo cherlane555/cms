@@ -12,6 +12,7 @@ import { MessageService } from 'primeng/api';
 import { AppRoleService } from '@core/services/app-role.service';
 import { LookupService } from '@core/services/lookup.service';
 import { AppRoleRequest, AppUserLookup } from '@core/models/app-role.model';
+import { RowAuditBadge } from '@shared/row-audit-badge/row-audit-badge';
 
 @Component({
   selector: 'app-app-role-form',
@@ -23,6 +24,7 @@ import { AppRoleRequest, AppUserLookup } from '@core/models/app-role.model';
     InputNumberModule,
     MultiSelectModule,
     ToastModule,
+    RowAuditBadge,
   ],
   providers: [MessageService],
   templateUrl: './app-role-form.html',
@@ -41,7 +43,8 @@ export class AppRoleForm implements OnInit {
   protected readonly saving = signal(false);
   protected readonly users = signal<AppUserLookup[]>([]);
 
-  private pkid = 0;
+  // pkid is the IDENTITY surrogate (RoleId is the PK) — exposed for the audit badge.
+  protected readonly pkid = signal(0);
 
   protected readonly form = this.fb.group({
     roleId: this.fb.nonNullable.control('', [Validators.required]),
@@ -62,7 +65,7 @@ export class AppRoleForm implements OnInit {
       next: ({ users, role }) => {
         this.users.set(users);
         if (role) {
-          this.pkid = role.pkid;
+          this.pkid.set(role.pkid);
           this.form.patchValue({
             roleId: role.roleId,
             roleName: role.roleName,
@@ -90,7 +93,7 @@ export class AppRoleForm implements OnInit {
 
     const raw = this.form.getRawValue();
     const request: AppRoleRequest = {
-      pkid: this.pkid,
+      pkid: this.pkid(),
       roleId: raw.roleId,
       roleName: raw.roleName,
       permissionLevel: raw.permissionLevel,

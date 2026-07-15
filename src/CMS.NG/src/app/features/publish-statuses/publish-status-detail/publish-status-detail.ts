@@ -7,10 +7,11 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { PublishStatusService } from '@core/services/publish-status.service';
 import { PublishStatus } from '@core/models/publish-status.model';
+import { RowAuditBadge } from '@shared/row-audit-badge/row-audit-badge';
 
 @Component({
   selector: 'app-publish-status-detail',
-  imports: [ButtonModule, CardModule, TagModule, ToastModule],
+  imports: [ButtonModule, CardModule, TagModule, ToastModule, RowAuditBadge],
   providers: [MessageService],
   templateUrl: './publish-status-detail.html',
   styleUrl: './publish-status-detail.scss',

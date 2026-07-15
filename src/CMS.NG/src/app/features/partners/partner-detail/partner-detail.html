@@ -4,6 +4,7 @@
   <div class="page-header">
     <h2>廠商詳細</h2>
     <div class="actions">
+      <app-row-audit-badge tableName="Partner" [pkid]="partner()?.pkid" />
       <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" [outlined]="true" (onClick)="back()" />
       <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" [disabled]="!partner()" />
     </div>

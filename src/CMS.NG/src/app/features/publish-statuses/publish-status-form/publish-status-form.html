@@ -4,6 +4,8 @@
   <div class="page-header">
     <h2>{{ isEdit() ? '編輯發布狀態' : '新增發布狀態' }}</h2>
     <div class="actions">
+      <!-- pkid is only fixed in edit mode; a new record has no history yet. -->
+      <app-row-audit-badge tableName="PublishStatus" [pkid]="isEdit() ? form.controls.pkid.value : 0" />
       <p-button
         label="取消"
         icon="pi pi-times"

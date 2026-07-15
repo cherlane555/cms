@@ -6,10 +6,11 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { PartnerService } from '@core/services/partner.service';
 import { Partner } from '@core/models/partner.model';
+import { RowAuditBadge } from '@shared/row-audit-badge/row-audit-badge';
 
 @Component({
   selector: 'app-partner-detail',
-  imports: [ButtonModule, CardModule, ToastModule],
+  imports: [ButtonModule, CardModule, ToastModule, RowAuditBadge],
   providers: [MessageService],
   templateUrl: './partner-detail.html',
   styleUrl: './partner-detail.scss',

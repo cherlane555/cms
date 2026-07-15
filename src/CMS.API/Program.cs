@@ -57,6 +57,7 @@ builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 // Row audit (cross-cutting): reads the signed-in user from the current request's JWT.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IRowAuditWriter, RowAuditWriter>();
+builder.Services.AddScoped<IRowAuditRepository, RowAuditRepository>();
 
 // Auth / JWT
 builder.Services.AddSingleton<ITokenService, TokenService>();

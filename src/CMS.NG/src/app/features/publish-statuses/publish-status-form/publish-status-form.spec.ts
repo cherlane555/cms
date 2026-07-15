@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
@@ -27,6 +29,8 @@ function setup(id: string | null) {
   TestBed.configureTestingModule({
     imports: [PublishStatusForm],
     providers: [
+      provideHttpClient(),
+      provideHttpClientTesting(),
       provideRouter([]),
       provideNoopAnimations(),
       { provide: PublishStatusService, useValue: serviceSpy },

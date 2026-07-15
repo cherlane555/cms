@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
@@ -18,6 +20,8 @@ describe('CourseGroupDetail', () => {
     await TestBed.configureTestingModule({
       imports: [CourseGroupDetail],
       providers: [
+      provideHttpClient(),
+      provideHttpClientTesting(),
         provideRouter([]),
         provideNoopAnimations(),
         { provide: CourseGroupService, useValue: serviceSpy },

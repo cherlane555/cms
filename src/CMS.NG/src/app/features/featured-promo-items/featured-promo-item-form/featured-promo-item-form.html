@@ -30,6 +30,7 @@
   </div>
 
   <div class="actions">
+    <app-row-audit-badge tableName="FeaturedPromoItem" [pkid]="item?.pkid" />
     <p-button type="submit" label="Save 儲存" icon="pi pi-check" [loading]="saving" />
     <p-button
       type="button"

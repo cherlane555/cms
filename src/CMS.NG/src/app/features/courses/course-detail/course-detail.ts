@@ -10,10 +10,11 @@ import { CourseService } from '@core/services/course.service';
 import { LookupService } from '@core/services/lookup.service';
 import { Course } from '@core/models/course.model';
 import { CourseQr } from '../course-qr/course-qr';
+import { RowAuditBadge } from '@shared/row-audit-badge/row-audit-badge';
 
 @Component({
   selector: 'app-course-detail',
-  imports: [ButtonModule, CardModule, TagModule, ToastModule, CourseQr],
+  imports: [ButtonModule, CardModule, TagModule, ToastModule, CourseQr, RowAuditBadge],
   providers: [MessageService],
   templateUrl: './course-detail.html',
   styleUrl: './course-detail.scss',

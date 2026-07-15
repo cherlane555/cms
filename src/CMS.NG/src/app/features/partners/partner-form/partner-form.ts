@@ -9,6 +9,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { PartnerService } from '@core/services/partner.service';
 import { PartnerRequest } from '@core/models/partner.model';
+import { RowAuditBadge } from '@shared/row-audit-badge/row-audit-badge';
 
 @Component({
   selector: 'app-partner-form',
@@ -19,6 +20,7 @@ import { PartnerRequest } from '@core/models/partner.model';
     InputNumberModule,
     InputTextModule,
     ToastModule,
+    RowAuditBadge,
   ],
   providers: [MessageService],
   templateUrl: './partner-form.html',
@@ -35,8 +37,8 @@ export class PartnerForm implements OnInit {
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
 
-  // pkid is IDENTITY (DB-assigned) — carried privately, not an editable form field.
-  private pkid = 0;
+  // pkid is IDENTITY (DB-assigned) — not an editable form field; exposed for the audit badge.
+  protected readonly pkid = signal(0);
 
   protected readonly form = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required]),
@@ -54,7 +56,7 @@ export class PartnerForm implements OnInit {
     if (idParam) {
       this.service.getById(Number(idParam)).subscribe({
         next: (partner) => {
-          this.pkid = partner.pkid;
+          this.pkid.set(partner.pkid);
           this.form.patchValue({
             name: partner.name,
             appKey: partner.appKey,
@@ -84,7 +86,7 @@ export class PartnerForm implements OnInit {
 
     const raw = this.form.getRawValue();
     const request: PartnerRequest = {
-      pkid: this.pkid,
+      pkid: this.pkid(),
       name: raw.name,
       appKey: raw.appKey,
       nameOnPartnerMenu: raw.nameOnPartnerMenu,

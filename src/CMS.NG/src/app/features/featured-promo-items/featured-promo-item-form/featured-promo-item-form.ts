@@ -10,6 +10,7 @@ import {
   FeaturedPromoItemRequest,
   PromoClipboard,
 } from '@core/models/featured-promo-item.model';
+import { RowAuditBadge } from '@shared/row-audit-badge/row-audit-badge';
 
 /**
  * Inline editor for one (day, slot) cell of the weekly grid.
@@ -18,7 +19,7 @@ import {
  */
 @Component({
   selector: 'app-featured-promo-item-form',
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule],
+  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, RowAuditBadge],
   templateUrl: './featured-promo-item-form.html',
   styleUrl: './featured-promo-item-form.scss',
 })

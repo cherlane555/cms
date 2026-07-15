@@ -23,6 +23,7 @@ import {
 import { PartnerLookup } from '@core/models/partner.model';
 import { CourseGroupLookup } from '@core/models/course-group.model';
 import { PublishStatusLookup } from '@core/models/publish-status.model';
+import { RowAuditBadge } from '@shared/row-audit-badge/row-audit-badge';
 
 @Component({
   selector: 'app-course-form',
@@ -38,6 +39,7 @@ import { PublishStatusLookup } from '@core/models/publish-status.model';
     SelectModule,
     TextareaModule,
     ToastModule,
+    RowAuditBadge,
   ],
   providers: [MessageService],
   templateUrl: './course-form.html',
@@ -60,7 +62,8 @@ export class CourseForm implements OnInit {
   protected readonly certifications = signal<CertificationLookup[]>([]);
   protected readonly jobCategories = signal<JobCategoryLookup[]>([]);
 
-  private pkid = 0;
+  // pkid is IDENTITY (DB-assigned) — not an editable form field; exposed for the audit badge.
+  protected readonly pkid = signal(0);
 
   protected readonly form = this.fb.group({
     title: this.fb.nonNullable.control('', [Validators.required]),
@@ -109,7 +112,7 @@ export class CourseForm implements OnInit {
         this.certifications.set(certifications);
         this.jobCategories.set(jobCategories);
         if (course) {
-          this.pkid = course.pkid;
+          this.pkid.set(course.pkid);
           this.form.patchValue({
             ...course,
             scheduleOn: CourseForm.parseDate(course.scheduleOn),
@@ -134,7 +137,7 @@ export class CourseForm implements OnInit {
 
     const raw = this.form.getRawValue();
     const request: CourseRequest = {
-      pkid: this.pkid,
+      pkid: this.pkid(),
       title: raw.title,
       officialTitle: raw.officialTitle,
       courseId: raw.courseId,

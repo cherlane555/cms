@@ -4,6 +4,7 @@
   <div class="page-header">
     <h2>{{ isEdit() ? '編輯廠商' : '新增廠商' }}</h2>
     <div class="actions">
+      <app-row-audit-badge tableName="Partner" [pkid]="pkid()" />
       <p-button
         label="取消"
         icon="pi pi-times"
