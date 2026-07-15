@@ -18,4 +18,22 @@ public interface IAuthRepository
     /// runtime. Throws <see cref="InvalidOperationException"/> if the row/property is missing.
     /// </summary>
     Task<string> GetSigningKeyAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// The <c>defaultPassword</c> from the <c>appConfig</c> JSON in SysConfig, read at runtime.
+    /// Throws <see cref="InvalidOperationException"/> if the row/property is missing.
+    /// </summary>
+    Task<string> GetDefaultPasswordAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Update only the <c>UserName</c> of the given user. Returns <c>false</c> if no row matched.
+    /// Never touches UserId, roles, or the password.
+    /// </summary>
+    Task<bool> UpdateUserNameAsync(string userId, string userName, CancellationToken ct = default);
+
+    /// <summary>
+    /// Set the user's <c>PasswordHash</c> and stamp <c>PasswordUpdatedTime</c> to now.
+    /// Returns <c>false</c> if no row matched.
+    /// </summary>
+    Task<bool> UpdatePasswordAsync(string userId, string passwordHash, CancellationToken ct = default);
 }

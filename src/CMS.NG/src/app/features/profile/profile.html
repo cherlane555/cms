@@ -1,0 +1,106 @@
+<p-toast />
+
+<div class="profile-page">
+  <p-card>
+    <ng-template pTemplate="title">我的個人資料 My Profile</ng-template>
+
+    <form class="profile-form" [formGroup]="form" (ngSubmit)="save()">
+      <div class="field">
+        <label class="field-label">帳號 User ID</label>
+        <input pInputText type="text" class="readonly" [value]="userId()" readonly disabled />
+        <small class="hint">帳號無法變更 Your user id cannot be changed.</small>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="userName">顯示名稱 User Name</label>
+        <input pInputText id="userName" type="text" formControlName="userName" />
+        @if (form.controls.userName.touched && form.controls.userName.invalid) {
+          <small class="error">請輸入顯示名稱 UserName is required.</small>
+        }
+      </div>
+
+      <div class="field">
+        <label class="field-label">角色 Roles</label>
+        <div class="roles" data-testid="roles">
+          @for (role of roles(); track role) {
+            <p-tag [value]="role" severity="info" />
+          } @empty {
+            <span class="hint">（無 None）</span>
+          }
+        </div>
+        <small class="hint">角色由系統管理員指派 Roles are assigned by an administrator.</small>
+      </div>
+
+      <div class="actions">
+        <p-button
+          type="submit"
+          label="儲存 Save"
+          icon="pi pi-check"
+          [loading]="saving()"
+        />
+      </div>
+    </form>
+  </p-card>
+
+  <p-card styleClass="password-card">
+    <ng-template pTemplate="title">變更密碼 Change Password</ng-template>
+
+    <form class="profile-form password-form" [formGroup]="passwordForm" (ngSubmit)="changePassword()">
+      <div class="field">
+        <label class="field-label" for="currentPassword">目前密碼 Current Password</label>
+        <p-password
+          inputId="currentPassword"
+          formControlName="currentPassword"
+          [feedback]="false"
+          [toggleMask]="true"
+          autocomplete="current-password"
+          inputStyleClass="w-full"
+          styleClass="w-full"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="newPassword">新密碼 New Password</label>
+        <p-password
+          inputId="newPassword"
+          formControlName="newPassword"
+          [feedback]="false"
+          [toggleMask]="true"
+          autocomplete="new-password"
+          inputStyleClass="w-full"
+          styleClass="w-full"
+        />
+        @if (passwordForm.controls.newPassword.touched && passwordForm.controls.newPassword.hasError('complexity')) {
+          <small class="error" data-testid="complexity-error">{{ complexityMessage }}</small>
+        }
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="confirmPassword">確認新密碼 Confirm New Password</label>
+        <p-password
+          inputId="confirmPassword"
+          formControlName="confirmPassword"
+          [feedback]="false"
+          [toggleMask]="true"
+          autocomplete="new-password"
+          inputStyleClass="w-full"
+          styleClass="w-full"
+        />
+        @if (passwordForm.controls.confirmPassword.touched && passwordForm.hasError('mismatch')) {
+          <small class="error" data-testid="mismatch-error">
+            新密碼與確認密碼不一致 New password and confirmation do not match.
+          </small>
+        }
+      </div>
+
+      <div class="actions">
+        <p-button
+          type="submit"
+          label="變更密碼 Change Password"
+          icon="pi pi-lock"
+          [loading]="changingPassword()"
+        />
+      </div>
+    </form>
+  </p-card>
+</div>

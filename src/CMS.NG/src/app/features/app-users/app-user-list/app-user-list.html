@@ -1,0 +1,35 @@
+<div class="page">
+  <header class="page-header">
+    <h1>使用者 AppUser</h1>
+  </header>
+
+  <p-table [value]="users()" [loading]="loading()" [paginator]="true" [rows]="10">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>帳號 User ID</th>
+        <th>顯示名稱 User Name</th>
+        <th style="width: 8rem"></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-user>
+      <tr>
+        <td>{{ user.userId }}</td>
+        <td>{{ user.userName }}</td>
+        <td>
+          <a
+            pButton
+            [routerLink]="['/app-users', user.userId, 'edit']"
+            label="編輯 Edit"
+            icon="pi pi-pencil"
+            [text]="true"
+          ></a>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="3">沒有使用者 No users.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>

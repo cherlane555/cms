@@ -1,6 +1,9 @@
 using CMS.API.Data;
 using CMS.API.Repositories;
 using CMS.API.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +53,20 @@ builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 
 // Auth / JWT
 builder.Services.AddSingleton<ITokenService, TokenService>();
+builder.Services.AddSingleton<IJwtSigningKeyProvider, JwtSigningKeyProvider>();
+builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, ConfigureJwtBearerOptions>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer();
+
+// Secure by default: every endpoint requires an authenticated user unless it opts out with
+// [AllowAnonymous] (only AuthController does).
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 var app = builder.Build();
 
@@ -63,6 +80,7 @@ app.UseSwaggerUI(options =>
 
 app.UseCors(CorsPolicy);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

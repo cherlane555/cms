@@ -34,7 +34,14 @@ SELECT RoleId FROM AppUserRole WHERE UserId = @UserId ORDER BY RoleId;",
         return user;
     }
 
-    public async Task<string> GetSigningKeyAsync(CancellationToken ct = default)
+    public Task<string> GetSigningKeyAsync(CancellationToken ct = default) =>
+        GetAppConfigStringAsync("symmetricSecurityKey", ct);
+
+    public Task<string> GetDefaultPasswordAsync(CancellationToken ct = default) =>
+        GetAppConfigStringAsync("defaultPassword", ct);
+
+    // Read a string property from the appConfig JSON in SysConfig at runtime.
+    private async Task<string> GetAppConfigStringAsync(string propertyName, CancellationToken ct)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
 
@@ -48,18 +55,40 @@ SELECT RoleId FROM AppUserRole WHERE UserId = @UserId ORDER BY RoleId;",
         }
 
         using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("symmetricSecurityKey", out var keyElement)
-            || keyElement.ValueKind != JsonValueKind.String)
+        if (!doc.RootElement.TryGetProperty(propertyName, out var element)
+            || element.ValueKind != JsonValueKind.String)
         {
-            throw new InvalidOperationException("'symmetricSecurityKey' is missing from the appConfig JSON.");
+            throw new InvalidOperationException($"'{propertyName}' is missing from the appConfig JSON.");
         }
 
-        var key = keyElement.GetString();
-        if (string.IsNullOrWhiteSpace(key))
+        var value = element.GetString();
+        if (string.IsNullOrWhiteSpace(value))
         {
-            throw new InvalidOperationException("'symmetricSecurityKey' in the appConfig JSON is empty.");
+            throw new InvalidOperationException($"'{propertyName}' in the appConfig JSON is empty.");
         }
 
-        return key;
+        return value;
+    }
+
+    public async Task<bool> UpdateUserNameAsync(string userId, string userName, CancellationToken ct = default)
+    {
+        using var conn = await _factory.CreateOpenConnectionAsync(ct);
+
+        var affected = await conn.ExecuteAsync(new CommandDefinition(
+            "UPDATE AppUser SET UserName = @UserName WHERE UserId = @UserId",
+            new { UserId = userId, UserName = userName }, cancellationToken: ct));
+
+        return affected > 0;
+    }
+
+    public async Task<bool> UpdatePasswordAsync(string userId, string passwordHash, CancellationToken ct = default)
+    {
+        using var conn = await _factory.CreateOpenConnectionAsync(ct);
+
+        var affected = await conn.ExecuteAsync(new CommandDefinition(
+            "UPDATE AppUser SET PasswordHash = @PasswordHash, PasswordUpdatedTime = GETUTCDATE() WHERE UserId = @UserId",
+            new { UserId = userId, PasswordHash = passwordHash }, cancellationToken: ct));
+
+        return affected > 0;
     }
 }

@@ -5,6 +5,7 @@ using CMS.API.Controllers;
 using CMS.API.Models;
 using CMS.API.Repositories;
 using CMS.API.Security;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 
@@ -146,5 +147,197 @@ public class AuthControllerTests
         var json = JsonSerializer.Serialize(body);
         Assert.DoesNotContain("passwordhash", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(PasswordHasher.Sha256Hex(Password), json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ---- Update profile (UserName only, JWT-scoped) ----
+
+    // Builds a controller whose User principal carries the given "userId" claim (as the JWT does).
+    private AuthController CreateControllerWithUser(string? userId)
+    {
+        var claims = userId is null ? Array.Empty<Claim>() : new[] { new Claim("userId", userId) };
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "TestAuth"));
+        return new AuthController(_repo.Object, _tokenService)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = principal }
+            }
+        };
+    }
+
+    [Fact]
+    public async Task UpdateProfile_UpdatesUserNameForJwtUser()
+    {
+        _repo.Setup(r => r.UpdateUserNameAsync(UserId, "New Name", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await CreateControllerWithUser(UserId)
+            .UpdateProfile(new UpdateProfileRequest { UserName = "New Name" }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var body = Assert.IsType<ProfileResponse>(ok.Value);
+        Assert.Equal(UserId, body.UserId);
+        Assert.Equal("New Name", body.UserName);
+        _repo.Verify(r => r.UpdateUserNameAsync(UserId, "New Name", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_TrimsUserName()
+    {
+        _repo.Setup(r => r.UpdateUserNameAsync(UserId, "Trimmed", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await CreateControllerWithUser(UserId)
+            .UpdateProfile(new UpdateProfileRequest { UserName = "   Trimmed   " }, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        _repo.Verify(r => r.UpdateUserNameAsync(UserId, "Trimmed", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public async Task UpdateProfile_EmptyUserName_ReturnsBadRequest(string? userName)
+    {
+        var result = await CreateControllerWithUser(UserId)
+            .UpdateProfile(new UpdateProfileRequest { UserName = userName }, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        _repo.Verify(
+            r => r.UpdateUserNameAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_NoUserIdClaim_ReturnsUnauthorized()
+    {
+        var result = await CreateControllerWithUser(null)
+            .UpdateProfile(new UpdateProfileRequest { UserName = "New Name" }, CancellationToken.None);
+
+        Assert.IsType<UnauthorizedObjectResult>(result.Result);
+        _repo.Verify(
+            r => r.UpdateUserNameAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    // ---- Change password (JWT-scoped, current verified, complexity enforced) ----
+
+    private const string NewPassword = "Str0ng!Pwd"; // 8+, upper+lower+digit+symbol
+
+    private static ChangePasswordRequest ChangePasswordBody(
+        string current = Password, string @new = NewPassword, string? confirm = null) =>
+        new() { CurrentPassword = current, NewPassword = @new, ConfirmPassword = confirm ?? @new };
+
+    [Fact]
+    public async Task ChangePassword_WrongCurrentPassword_ChangesNothing()
+    {
+        _repo.Setup(r => r.GetLoginUserAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(SampleUser());
+
+        var result = await CreateControllerWithUser(UserId)
+            .ChangePassword(ChangePasswordBody(current: "wrong-password"), CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        _repo.Verify(
+            r => r.UpdatePasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Theory]
+    [InlineData("Ab1!")]        // too short (< 8)
+    [InlineData("abcdefghij")]  // 1 class (lowercase only)
+    [InlineData("abcdefgh1")]   // 2 classes (lowercase + digit)
+    public async Task ChangePassword_WeakNewPassword_RejectedWithComplexityMessage(string weak)
+    {
+        _repo.Setup(r => r.GetLoginUserAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(SampleUser());
+
+        var result = await CreateControllerWithUser(UserId)
+            .ChangePassword(ChangePasswordBody(@new: weak), CancellationToken.None);
+
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Contains(PasswordPolicy.ComplexityMessage, bad.Value!.ToString());
+        _repo.Verify(
+            r => r.UpdatePasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ChangePassword_NewAndConfirmMismatch_ChangesNothing()
+    {
+        _repo.Setup(r => r.GetLoginUserAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(SampleUser());
+
+        var result = await CreateControllerWithUser(UserId)
+            .ChangePassword(ChangePasswordBody(@new: NewPassword, confirm: "Different1!"), CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        _repo.Verify(
+            r => r.UpdatePasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ChangePassword_Valid_SetsHashOfNewPassword()
+    {
+        _repo.Setup(r => r.GetLoginUserAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(SampleUser());
+        _repo.Setup(r => r.UpdatePasswordAsync(UserId, PasswordHasher.Sha256Hex(NewPassword), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await CreateControllerWithUser(UserId)
+            .ChangePassword(ChangePasswordBody(), CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        _repo.Verify(
+            r => r.UpdatePasswordAsync(UserId, PasswordHasher.Sha256Hex(NewPassword), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    // ---- Reset password to default (Admin only; role enforcement tested in AuthorizationTests) ----
+
+    private const string DefaultPassword = "CMS4fun#";
+    private const string TargetUser = "someone@else.com";
+
+    [Fact]
+    public async Task ResetPassword_SetsHashOfDefaultPassword()
+    {
+        _repo.Setup(r => r.GetDefaultPasswordAsync(It.IsAny<CancellationToken>())).ReturnsAsync(DefaultPassword);
+        _repo.Setup(r => r.UpdatePasswordAsync(TargetUser, PasswordHasher.Sha256Hex(DefaultPassword), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await CreateControllerWithUser(UserId)
+            .ResetPassword(new ResetPasswordRequest { UserId = TargetUser }, CancellationToken.None);
+
+        // NoContent carries no body — no password/hash is returned.
+        Assert.IsType<NoContentResult>(result);
+        _repo.Verify(
+            r => r.UpdatePasswordAsync(TargetUser, PasswordHasher.Sha256Hex(DefaultPassword), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public async Task ResetPassword_MissingUserId_ReturnsBadRequest(string? targetUserId)
+    {
+        var result = await CreateControllerWithUser(UserId)
+            .ResetPassword(new ResetPasswordRequest { UserId = targetUserId }, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        _repo.Verify(
+            r => r.UpdatePasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPassword_UnknownUser_ReturnsNotFound()
+    {
+        _repo.Setup(r => r.GetDefaultPasswordAsync(It.IsAny<CancellationToken>())).ReturnsAsync(DefaultPassword);
+        _repo.Setup(r => r.UpdatePasswordAsync("ghost@x.com", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await CreateControllerWithUser(UserId)
+            .ResetPassword(new ResetPasswordRequest { UserId = "ghost@x.com" }, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
     }
 }

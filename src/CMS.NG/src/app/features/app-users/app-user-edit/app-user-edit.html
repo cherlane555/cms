@@ -1,0 +1,36 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="page">
+  <p-card>
+    <ng-template pTemplate="title">編輯使用者 Edit AppUser</ng-template>
+
+    <div class="form">
+      <div class="field">
+        <label class="field-label">帳號 User ID</label>
+        <input pInputText type="text" [value]="userId()" readonly disabled />
+      </div>
+
+      <div class="field">
+        <label class="field-label">顯示名稱 User Name</label>
+        <input pInputText type="text" [value]="userName()" readonly disabled />
+      </div>
+
+      @if (isAdmin()) {
+        <div class="reset-block" data-testid="reset-block">
+          <p-button
+            type="button"
+            label="重設密碼為預設值 Reset Password to Default"
+            icon="pi pi-refresh"
+            severity="warn"
+            [loading]="resetting()"
+            (onClick)="confirmReset()"
+          />
+          <small class="hint">
+            將此使用者密碼重設為系統預設值 Resets this user's password to the system default.
+          </small>
+        </div>
+      }
+    </div>
+  </p-card>
+</div>

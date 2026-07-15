@@ -1,0 +1,43 @@
+<div class="login-page">
+  <form class="login-card" [formGroup]="form" (ngSubmit)="submit()">
+    <div class="login-brand">
+      <span class="logo"><i class="pi pi-box"></i></span>
+      <span class="name">UWA CMS</span>
+    </div>
+    <h1 class="login-title">登入 Sign in</h1>
+
+    @if (errorMessage()) {
+      <p-message severity="error" [text]="errorMessage()" styleClass="login-error" />
+    }
+
+    <label class="field">
+      <span class="field-label">帳號 User ID</span>
+      <input
+        pInputText
+        type="text"
+        formControlName="userId"
+        autocomplete="username"
+        placeholder="miles@uuu.com.tw"
+      />
+    </label>
+
+    <label class="field">
+      <span class="field-label">密碼 Password</span>
+      <p-password
+        formControlName="password"
+        [feedback]="false"
+        [toggleMask]="true"
+        autocomplete="current-password"
+        inputStyleClass="w-full"
+        styleClass="w-full"
+      />
+    </label>
+
+    <p-button
+      type="submit"
+      label="登入 Sign in"
+      [loading]="submitting()"
+      styleClass="login-submit"
+    />
+  </form>
+</div>
