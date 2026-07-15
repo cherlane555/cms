@@ -9,13 +9,12 @@ standalone, PrimeNG v20). SQL Server `.\SQLEXPRESS`, database `CMS`.
 - **PrimeNG stays on v20** — Angular is 20; `primeng@latest` (v21) needs Angular 21 and breaks install.
 - UI text is Traditional Chinese (with English), e.g. 新增 / 編輯 / 儲存 / 刪除.
 - New entity features follow `spec/code-gen.convention.md` and the AppRole reference feature.
-- **Auth is secure-by-default:** every API endpoint requires a valid JWT except `AuthController.Login`.
-  Passwords are hashed **server-side only** as lowercase-hex SHA-256 — no password or hash crosses the wire.
-- **Cross-cutting (every feature):** repositories log Insert/Update/Delete to `RowAudit` via the
-  shared `IRowAuditWriter` — load-before on Update/Delete, audit on the same connection/transaction;
-  every detail/form page leads its actions bar with `<app-row-audit-badge>`; unexpected errors flow
-  through the global exception middleware (no per-controller try/catch; 401/403/400 stay as-is).
-  Details: `docs/cross-cutting-notes.md`.
+- **Auth is secure-by-default:** every endpoint requires a JWT except `AuthController.Login`; passwords
+  are hashed **server-side only** (lowercase-hex SHA-256) — no password or hash crosses the wire.
+- **Cross-cutting (every feature):** repositories audit Insert/Update/Delete to `RowAudit` via
+  `IRowAuditWriter`; detail/form pages lead their actions bar with `<app-row-audit-badge>`; errors
+  flow through the global exception middleware (no per-controller try/catch).
+  How: [docs/cross-cutting-notes.md](docs/cross-cutting-notes.md).
 
 ## Read when needed
 
