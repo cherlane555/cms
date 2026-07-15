@@ -1,15 +1,17 @@
 # Setup & reference notes
 
-Detailed setup, run commands, folder map, code-generation patterns, and one-time context for the
-CMS project. `CLAUDE.md` (repo root) holds the slim per-session guidance and links here.
+Run commands, folder map, and one-time context for the CMS project. `CLAUDE.md` (repo root)
+holds the slim per-session core and links here. Entity CRUD patterns live in
+`spec/code-gen.convention.md`; the auth subsystem lives in [auth-notes.md](auth-notes.md).
 
 ## Tech stack
 
-- **Backend:** .NET 9 (`net9.0`), Dapper 2.x, Microsoft.Data.SqlClient, Swashbuckle.AspNetCore
-  7.2.0. Controllers-based (not minimal API). All data access is async.
+- **Backend:** .NET 9 (`net9.0`), Dapper 2.x, Microsoft.Data.SqlClient, Swashbuckle 7.2.0,
+  JWT bearer (`Microsoft.AspNetCore.Authentication.JwtBearer`). Controllers-based (not minimal
+  API). All data access is async.
 - **Frontend:** Angular 20 standalone components (no NgModules), PrimeNG **v20** (Aura theme,
   `providePrimeNG` in `app.config.ts`), primeicons, Reactive Forms, RxJS. Karma + Jasmine tests.
-- **DB:** SQL Server (local `.\SQLEXPRESS`, database `CMS`).
+- **DB:** SQL Server (local `.\SQLEXPRESS`, database `CMS`). `sqlcmd` needs `-C` (trust cert).
 
 ## Running
 
@@ -26,15 +28,17 @@ Frontend (from `src/CMS.NG`):
 ```powershell
 npm install             # first time
 npm start               # ng serve -> http://localhost:4200
-ng test --watch=false   # Karma/Jasmine (needs Chrome; use --browsers=ChromeHeadless in CI)
+ng test --watch=false --browsers=ChromeHeadless
 ```
 
 - API port **5000** (`Properties/launchSettings.json`), Angular dev port **4200** (`angular.json`).
 - CORS allows any `localhost`/`127.0.0.1` origin.
-- Frontend talks to the API via `environment.apiBaseUrl` (absolute URL) — there is **no** dev-server
-  proxy. `ng serve` uses `environment.development.ts` via `fileReplacements`.
+- Frontend talks to the API via `environment.apiBaseUrl` (absolute URL) — **no** dev-server proxy.
+  `ng serve` uses `environment.development.ts` via `fileReplacements`.
 - A production `ng build` exceeds Angular's default bundle-size budget (PrimeNG is large); the
   required commands (`ng serve`, `ng test`) are unaffected.
+- `dotnet run` leaves a `CMS.API` process that can lock `bin/` on the next build — stop it first
+  (`Get-Process CMS.API | Stop-Process -Force`).
 
 ## Repository layout
 
@@ -43,88 +47,64 @@ database/                 Source-of-truth SQL schema (CREATE TABLE scripts)
   auth.sql                AppRole, AppUser, AppUserRole, SysConfig
   admin.sql, course.sql, promotion.sql
 spec/                     Conventions + per-feature build specs (drive code generation)
-  code-gen.convention.md  THE canonical patterns doc — read before generating a feature
+  code-gen.convention.md  Canonical CRUD patterns — read before generating a feature
   feature-spec.template.md, sample1.spec.md (Course), sample2.spec.md
   ui-sample-*.png         Visual references (list/view/edit/add)
 src/
-  CMS.slnx                .NET solution (references API + Tests). Lives here, NOT in CMS.API/,
+  CMS.slnx                .NET solution (references API + Tests). Lives in src/, NOT in CMS.API/,
                           so `cd CMS.API && dotnet build` stays unambiguous (one .csproj there).
   CMS.API/                .NET 9 Web API
-    Controllers/          {Entity}Controller (e.g. AppRolesController), LookupsController
-    Data/                 IDbConnectionFactory + SqlConnectionFactory (opens SqlConnection)
+    Controllers/          {Entity}Controller, LookupsController, AuthController (login/profile/password)
+    Data/                 IDbConnectionFactory + SqlConnectionFactory
     Models/               {Entity} (response), {Entity}Request (write DTO), {Entity}Query (search)
-    Repositories/         I{Entity}Repository + {Entity}Repository (Dapper), lookup repo
-    Program.cs            DI, CORS, Swagger, repo registration
+    Repositories/         I{Entity}Repository + {Entity}Repository (Dapper), lookup + auth repos
+    Security/             Auth: PasswordHasher, PasswordPolicy, TokenService, JWT key/options (auth-notes)
+    Program.cs            DI, CORS, Swagger, JWT auth + global authorization, repo registration
     appsettings.json      ConnectionStrings:CMS
-  CMS.API.Tests/          xUnit + Moq (controller tests against a mocked repository)
+  CMS.API.Tests/          xUnit + Moq; WebApplicationFactory for auth/authorization
   CMS.NG/                 Angular 20 app
     src/environments/     environment.ts / environment.development.ts (apiBaseUrl; NO proxy)
-    src/app/core/         models/ + services/ (one data service per entity + lookup.service)
-    src/app/features/{plural}/{entity}-list | -detail | -form/
-    src/app/app.ts/.html/.scss   Shell + sidebar nav
+    src/app/core/         models/, services/ (one per entity + lookup), auth/ (service/interceptor/guard)
+    src/app/features/{plural}/{entity}-list | -detail | -form/; auth/login, profile, app-users
+    src/app/app.ts/.html/.scss   Shell + sidebar nav (auth-gated chrome, role-gated Admin group)
 docs/setup-notes.md       This file
 ```
 
-## Code-generation patterns
+## Code-generation deltas
 
-Follow `spec/code-gen.convention.md`. What the AppRole feature established:
+`spec/code-gen.convention.md` is canonical (models, repo, controller, list/form, special column
+types, endpoints). Points worth repeating / beyond that doc:
 
-### Backend
-- **Models:** `{Entity}.cs` (response, includes nav/subquery fields like counts), `{Entity}Request.cs`
-  (write DTO; n-n carried as `List<...>`), `{Entity}Query.cs` (search DTO; `Keyword?`, optional FK/bool
-  filters).
-- **Repository:** Dapper only. Interface + impl, constructor-injected `IDbConnectionFactory`.
-  Async everywhere with `CommandDefinition(..., cancellationToken: ct)`. `nchar` columns → `RTRIM()`
-  in SELECT. Alias FK `_pkid` columns to the C# property name (`Partner_pkid AS PartnerPkid`).
-  **n-n sync:** inside a transaction, delete-then-reinsert the junction rows on create/update.
-- **Controller:** route `api/{entity-plural}` (kebab-case). Endpoints: `GET /` (all),
-  `POST /query` (filtered), `GET /{id}`, `POST /` (create), `PUT /` (update — **id/pkid comes from
-  the body, not the route**), `DELETE /{id}`. Return `Ok/NotFound/CreatedAtAction/NoContent/Conflict`.
-- **String PK entities** (e.g. AppRole's `RoleId`): route param is `{id}` with **no** `:int`
-  constraint; the entity is located by that string key.
-- Register each repository in `Program.cs` (`AddScoped<I..., ...>`).
-
-### Frontend
-- **Feature folders:** `features/{plural}/{entity}-list`, `-detail`, `-form`. Standalone components,
-  lazy-loaded via `loadComponent` in `app.routes.ts`.
-- **Data service:** `core/services/{entity}.service.ts`, `providedIn: 'root'`, `inject(HttpClient)`,
-  base URL from `@env`. String-PK ids are `encodeURIComponent`'d in the URL.
-- **List page:** PrimeNG `p-table` (sortable, paginated) + filter `p-drawer`. Persist to
-  `sessionStorage` under keys `{entity}-list-filters`, `{entity}-list-sort`, `{entity}-list-page`.
-  Header has a "搜尋條件" (open drawer) + "新增" button. Per-row view/edit/delete actions; delete uses
-  `ConfirmationService` (`p-confirmDialog`) + `MessageService` (`p-toast`).
-- **Form page:** Reactive Forms; `forkJoin` for parallel lookup calls on init. Typed forms — use
-  `fb.nonNullable.control(...)` for required string/number controls so `getRawValue()` is non-null.
-  n-n via `p-multiSelect` (`appendTo="body"`, `[maxSelectedLabels]="9999"`). Disable the PK control
-  in edit mode. Branch create vs update into separate `.subscribe()` calls (don't build a
-  `Observable<A> | Observable<void>` union — it isn't callable under strict types).
-- **Detail page:** `forkJoin` the entity + lookups, map FK/n-n ids to display labels.
-- **Sidebar nav:** add the entry under the right group in `app.ts` (`navGroups`) / `app.html`.
-  The sidebar is styled after the PrimeNG "Ultima" analytics dashboard (light surface, uppercase
-  muted section labels, indigo active pill).
-
-### Conventions
-- Path aliases (`tsconfig.json`): `@env`, `@core/*`, `@features/*`, `@shared/*`.
-- UI text is Traditional Chinese (with English), e.g. 新增 / 編輯 / 儲存 / 取消 / 刪除確認.
-- Delete confirmation copy: ``確定要刪除主代碼 <b>${pkid}</b>「${businessKey}」？``
+- **Backend:** async everywhere (`CommandDefinition(..., cancellationToken: ct)`); `nchar` → `RTRIM()`
+  in SELECT; alias FK `_pkid` columns to the C# name (`Partner_pkid AS PartnerPkid`); n-n sync is
+  delete-then-reinsert inside a transaction. `PUT` takes the id/pkid from the **body**, not the route.
+  String-PK route param is `{id}` (no `:int`). Register each repository in `Program.cs`.
+- **Frontend:** typed forms — `fb.nonNullable.control(...)` for required controls so `getRawValue()`
+  is non-null; branch create-vs-update into **separate** `.subscribe()` calls (a
+  `Observable<A> | Observable<void>` union isn't callable under strict types); detail pages `forkJoin`
+  the entity + lookups and map ids → labels. Path aliases: `@env`, `@core/*`, `@features/*`, `@shared/*`.
+- **Sidebar nav:** add the entry under the right group in `app.ts` (`navGroups`) / `app.html`
+  (Ultima style: light surface, uppercase muted labels, indigo active pill). Gate a group by role with
+  `requiresRole` (see auth-notes).
+- **Delete confirm copy:** `` 確定要刪除主代碼 <b>${pkid}</b>「${businessKey}」？ ``
 
 ## Testing approach
-- **Backend:** controllers are unit-tested against a **mocked `I{Entity}Repository`** (Moq,
-  `MockBehavior.Strict`) — no live DB needed. Cover list, filter, view (found/not-found), add
-  (created/conflict/validation), edit (updated/not-found), delete.
-- **Frontend:** services tested with `HttpTestingController` (assert method/URL/body). Components
-  tested with jasmine-spy services returning `of(...)`, `provideRouter([])`, `provideNoopAnimations()`,
-  and a fake `ActivatedRoute` (`convertToParamMap`).
+
+- **Backend:** controllers unit-tested against a **mocked `I{Entity}Repository`** (Moq,
+  `MockBehavior.Strict`) — no live DB. Auth/authorization tested end-to-end via
+  `WebApplicationFactory<Program>` (override `IJwtSigningKeyProvider` + the repos). See auth-notes.
+- **Frontend:** services via `HttpTestingController` (assert method/URL/body); components with
+  jasmine-spy services returning `of(...)`, `provideRouter([])`, `provideNoopAnimations()`, and a fake
+  `ActivatedRoute` (`convertToParamMap`). Components that inject `AuthService` also need `provideHttpClient()`.
 
 ## Domain notes
 
-Per-entity schema facts and `/crud` skill corrections live in
-[scaffolding-notes.md](scaffolding-notes.md).
+Per-entity schema facts and `/crud` skill corrections live in [scaffolding-notes.md](scaffolding-notes.md).
 
 ## One-time context
+
 - **PrimeNG pinned to v20:** `primeng@*` originally pulled v21, which requires Angular 21 and broke
   `npm install`. Installed `primeng@^20` / `@primeng/themes@^20`.
 - **Solution location:** `CMS.slnx` sits in `src/`, not inside `CMS.API/`, to avoid `dotnet build`
-  ambiguity (a solution beside the `.csproj` makes the folder have two build targets). It is `.slnx`
-  (the SDK 10 default format); SDK 9 is also installed and both build fine.
+  ambiguity. It is `.slnx` (SDK 10 default format); SDK 9 is also installed and both build fine.
 - **Repo:** git history on `develop` (default) / `main`; remote `origin` → GitHub `cherlane555/cms`.
