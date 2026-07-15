@@ -29,3 +29,5 @@ Thumbs.db
 
 # ---- Claude Code (local, session-bootstrapped skills) ----
 .claude/skills/verify/
+
+.claude/worktrees/
