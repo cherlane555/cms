@@ -117,10 +117,9 @@ Follow `spec/code-gen.convention.md`. What the AppRole feature established:
   and a fake `ActivatedRoute` (`convertToParamMap`).
 
 ## Domain notes
-- **AppRole** — PK is the string column `RoleId` (the `pkid` IDENTITY is a display surrogate).
-  N-N with **AppUser** via **AppUserRole**: the list shows a `使用者數` count (subquery over
-  AppUserRole) and the form has a users multi-select. AppUser lookup label is `"UserName (UserId)"`,
-  served by `GET /api/lookups/app-users`.
+
+Per-entity schema facts and `/crud` skill corrections live in
+[scaffolding-notes.md](scaffolding-notes.md).
 
 ## One-time context
 - **PrimeNG pinned to v20:** `primeng@*` originally pulled v21, which requires Angular 21 and broke
