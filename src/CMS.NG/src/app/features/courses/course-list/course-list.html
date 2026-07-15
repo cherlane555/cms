@@ -1,0 +1,455 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="title">
+      <h2>課程 Course</h2>
+      <span class="subtitle">課程資料維護</span>
+    </div>
+    <div class="actions">
+      <p-button
+        label="搜尋條件"
+        icon="pi pi-filter"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="filterOpen.set(true)"
+      />
+      <p-button label="新增" icon="pi pi-plus" severity="success" (onClick)="add()" />
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <p-table
+      [value]="courses()"
+      [loading]="loading()"
+      [paginator]="true"
+      [rows]="rows"
+      [first]="first"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="{first}–{last} 筆，共 {totalRecords} 筆"
+      [sortField]="sortField"
+      [sortOrder]="sortOrder"
+      (onSort)="onSort($event)"
+      (onPage)="onPage($event)"
+      dataKey="pkid"
+      [scrollable]="true"
+      editMode="cell"
+      (onEditComplete)="onEditComplete($event)"
+      (onEditCancel)="onEditCancel()"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="pkid" style="width: 6rem">主代碼 <p-sortIcon field="pkid" /></th>
+          <th pSortableColumn="displayOrder" style="width: 6rem">顯示順序 <p-sortIcon field="displayOrder" /></th>
+          <th pSortableColumn="courseId" style="width: 9rem">簡介代碼 <p-sortIcon field="courseId" /></th>
+          <th pSortableColumn="prodCourseId" style="width: 9rem">科目代碼 <p-sortIcon field="prodCourseId" /></th>
+          <th pSortableColumn="title" style="min-width: 18rem">課程名稱 <p-sortIcon field="title" /></th>
+          <th pSortableColumn="partnerName" style="width: 8rem">原廠 <p-sortIcon field="partnerName" /></th>
+          <th pSortableColumn="courseGroupDescription" style="width: 10rem">
+            課程群組 <p-sortIcon field="courseGroupDescription" />
+          </th>
+          <th pSortableColumn="publishStatusDescription" style="width: 8rem">
+            上架狀態 <p-sortIcon field="publishStatusDescription" />
+          </th>
+          <th pSortableColumn="scheduleOn" style="width: 8.5rem">上架日期 <p-sortIcon field="scheduleOn" /></th>
+          <th pSortableColumn="scheduleOff" style="width: 8.5rem">下架日期 <p-sortIcon field="scheduleOff" /></th>
+          <th pSortableColumn="hour" style="width: 6rem">時數 <p-sortIcon field="hour" /></th>
+          <th pSortableColumn="listPrice" style="width: 7rem">定價 <p-sortIcon field="listPrice" /></th>
+          <th pSortableColumn="learningCredit" style="width: 6.5rem">點數 <p-sortIcon field="learningCredit" /></th>
+          <th style="width: 6.5rem">允許重聽</th>
+          <th style="width: 10rem">操作</th>
+        </tr>
+      </ng-template>
+
+      <!--
+        In-place editing: pEditableColumn stays disabled until dblclick arms the cell
+        (single-click must not edit). 主代碼 / 原廠 / 課程群組 have no editor at all.
+        The .cell-editor wrapper picks up ng-invalid/ng-dirty when validation fails,
+        which is what makes PrimeNG keep the cell open on Enter / outside click.
+      -->
+      <ng-template pTemplate="body" let-course>
+        <tr>
+          <td>{{ course.pkid }}</td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="displayOrder"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'displayOrder')"
+            (dblclick)="armCell(course, 'displayOrder', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor" [class.ng-invalid]="!!editError()" [class.ng-dirty]="!!editError()">
+                  <input
+                    pInputText
+                    type="number"
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'displayOrder', $event)"
+                    (blur)="commit(course, 'displayOrder')"
+                  />
+                  @if (editError()) {
+                    <small class="cell-error">{{ editError() }}</small>
+                  }
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ course.displayOrder }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="courseId"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'courseId')"
+            (dblclick)="armCell(course, 'courseId', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor" [class.ng-invalid]="!!editError()" [class.ng-dirty]="!!editError()">
+                  <input
+                    pInputText
+                    type="text"
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'courseId', $event)"
+                    (blur)="commit(course, 'courseId')"
+                  />
+                  @if (editError()) {
+                    <small class="cell-error">{{ editError() }}</small>
+                  }
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ course.courseId }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="prodCourseId"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'prodCourseId')"
+            (dblclick)="armCell(course, 'prodCourseId', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor" [class.ng-invalid]="!!editError()" [class.ng-dirty]="!!editError()">
+                  <input
+                    pInputText
+                    type="text"
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'prodCourseId', $event)"
+                    (blur)="commit(course, 'prodCourseId')"
+                  />
+                  @if (editError()) {
+                    <small class="cell-error">{{ editError() }}</small>
+                  }
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ course.prodCourseId }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="title"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'title')"
+            (dblclick)="armCell(course, 'title', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor" [class.ng-invalid]="!!editError()" [class.ng-dirty]="!!editError()">
+                  <input
+                    pInputText
+                    type="text"
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'title', $event)"
+                    (blur)="commit(course, 'title')"
+                  />
+                  @if (editError()) {
+                    <small class="cell-error">{{ editError() }}</small>
+                  }
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ course.title }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td>{{ course.partnerName }}</td>
+          <td>{{ course.courseGroupDescription }}</td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="publishStatusPkid"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'publishStatusPkid')"
+            (dblclick)="armCell(course, 'publishStatusPkid', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor" [class.ng-invalid]="!!editError()" [class.ng-dirty]="!!editError()">
+                  <p-select
+                    [options]="publishStatuses()"
+                    optionLabel="description"
+                    optionValue="pkid"
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'publishStatusPkid', $event)"
+                    (onChange)="commit(course, 'publishStatusPkid')"
+                    appendTo="body"
+                    styleClass="w-full"
+                  />
+                  @if (editError()) {
+                    <small class="cell-error">{{ editError() }}</small>
+                  }
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ course.publishStatusDescription }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="scheduleOn"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'scheduleOn')"
+            (dblclick)="armCell(course, 'scheduleOn', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor" [class.ng-invalid]="!!editError()" [class.ng-dirty]="!!editError()">
+                  <p-datepicker
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'scheduleOn', $event)"
+                    (onSelect)="commit(course, 'scheduleOn')"
+                    (onBlur)="commit(course, 'scheduleOn')"
+                    dateFormat="yy-mm-dd"
+                    appendTo="body"
+                  />
+                  @if (editError()) {
+                    <small class="cell-error">{{ editError() }}</small>
+                  }
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ dateOf(course.scheduleOn) }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="scheduleOff"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'scheduleOff')"
+            (dblclick)="armCell(course, 'scheduleOff', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor" [class.ng-invalid]="!!editError()" [class.ng-dirty]="!!editError()">
+                  <p-datepicker
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'scheduleOff', $event)"
+                    (onSelect)="commit(course, 'scheduleOff')"
+                    (onBlur)="commit(course, 'scheduleOff')"
+                    dateFormat="yy-mm-dd"
+                    appendTo="body"
+                  />
+                  @if (editError()) {
+                    <small class="cell-error">{{ editError() }}</small>
+                  }
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ dateOf(course.scheduleOff) }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="hour"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'hour')"
+            (dblclick)="armCell(course, 'hour', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor" [class.ng-invalid]="!!editError()" [class.ng-dirty]="!!editError()">
+                  <input
+                    pInputText
+                    type="number"
+                    min="0"
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'hour', $event)"
+                    (blur)="commit(course, 'hour')"
+                  />
+                  @if (editError()) {
+                    <small class="cell-error">{{ editError() }}</small>
+                  }
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ course.hour }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="listPrice"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'listPrice')"
+            (dblclick)="armCell(course, 'listPrice', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor" [class.ng-invalid]="!!editError()" [class.ng-dirty]="!!editError()">
+                  <input
+                    pInputText
+                    type="number"
+                    min="0"
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'listPrice', $event)"
+                    (blur)="commit(course, 'listPrice')"
+                  />
+                  @if (editError()) {
+                    <small class="cell-error">{{ editError() }}</small>
+                  }
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ course.listPrice }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="learningCredit"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'learningCredit')"
+            (dblclick)="armCell(course, 'learningCredit', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor" [class.ng-invalid]="!!editError()" [class.ng-dirty]="!!editError()">
+                  <input
+                    pInputText
+                    type="number"
+                    min="0"
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'learningCredit', $event)"
+                    (blur)="commit(course, 'learningCredit')"
+                  />
+                  @if (editError()) {
+                    <small class="cell-error">{{ editError() }}</small>
+                  }
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ course.learningCredit }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td
+            [pEditableColumn]="course"
+            pEditableColumnField="canRepeat"
+            [pEditableColumnDisabled]="!isArmed(course.pkid, 'canRepeat')"
+            (dblclick)="armCell(course, 'canRepeat', $event)"
+          >
+            <p-cellEditor>
+              <ng-template pTemplate="input">
+                <span class="cell-editor">
+                  <p-checkbox
+                    [binary]="true"
+                    [ngModel]="editValue"
+                    (ngModelChange)="onEditValueChange(course, 'canRepeat', $event); commit(course, 'canRepeat')"
+                  />
+                </span>
+              </ng-template>
+              <ng-template pTemplate="output">{{ course.canRepeat ? '是' : '否' }}</ng-template>
+            </p-cellEditor>
+          </td>
+          <td>
+            <div class="row-actions">
+              <p-button
+                icon="pi pi-eye"
+                severity="secondary"
+                [text]="true"
+                pTooltip="檢視"
+                (onClick)="view(course)"
+              />
+              <p-button
+                icon="pi pi-pencil"
+                severity="info"
+                [text]="true"
+                pTooltip="編輯"
+                (onClick)="edit(course)"
+              />
+              <p-button
+                icon="pi pi-trash"
+                severity="danger"
+                [text]="true"
+                pTooltip="刪除"
+                (onClick)="remove(course)"
+              />
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="15" class="empty">查無資料</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
+
+<!-- Filter drawer -->
+<p-drawer
+  [visible]="filterOpen()"
+  (visibleChange)="filterOpen.set($event)"
+  position="right"
+  header="搜尋條件"
+  [style]="{ width: '24rem' }"
+>
+  <div class="filter-form">
+    <div class="field">
+      <label for="keyword">關鍵字</label>
+      <input
+        id="keyword"
+        type="text"
+        pInputText
+        [(ngModel)]="filter.keyword"
+        placeholder="名稱 / 簡介代碼 / 科目代碼"
+      />
+    </div>
+    <div class="field">
+      <label for="partner">原廠</label>
+      <p-select
+        inputId="partner"
+        [options]="partners()"
+        [(ngModel)]="filter.partnerPkid"
+        optionLabel="name"
+        optionValue="pkid"
+        [showClear]="true"
+        [filter]="true"
+        filterBy="name"
+        placeholder="全部"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    </div>
+    <div class="field">
+      <label for="courseGroup">課程群組</label>
+      <p-select
+        inputId="courseGroup"
+        [options]="courseGroups()"
+        [(ngModel)]="filter.courseGroupPkid"
+        optionLabel="description"
+        optionValue="pkid"
+        [showClear]="true"
+        [filter]="true"
+        filterBy="description"
+        [virtualScroll]="true"
+        [virtualScrollItemSize]="43"
+        placeholder="全部"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    </div>
+    <div class="field">
+      <label for="publishStatus">上架狀態</label>
+      <p-select
+        inputId="publishStatus"
+        [options]="publishStatuses()"
+        [(ngModel)]="filter.publishStatusPkid"
+        optionLabel="description"
+        optionValue="pkid"
+        [showClear]="true"
+        placeholder="全部"
+        appendTo="body"
+        styleClass="w-full"
+      />
+    </div>
+    <div class="filter-actions">
+      <p-button label="清除" severity="secondary" [outlined]="true" (onClick)="clearFilter()" />
+      <p-button label="查詢" icon="pi pi-search" (onClick)="applyFilter()" />
+    </div>
+  </div>
+</p-drawer>

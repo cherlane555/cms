@@ -1,0 +1,43 @@
+<form class="inline-editor" [formGroup]="form" (ngSubmit)="save()">
+  <div class="field">
+    <label for="promoCode">PromoCode:</label>
+    <div class="code-row">
+      <input
+        pInputText
+        id="promoCode"
+        formControlName="promoCode"
+        placeholder="輸入 PromoCode 後查詢"
+        (blur)="lookup()"
+      />
+      <p-button
+        label="查詢"
+        icon="pi pi-search"
+        severity="secondary"
+        [text]="true"
+        (onClick)="lookup()"
+      />
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="topic">Topic:</label>
+    <input pInputText id="topic" formControlName="topic" />
+  </div>
+
+  <div class="field">
+    <label for="description">Description:</label>
+    <input pInputText id="description" formControlName="description" />
+  </div>
+
+  <div class="actions">
+    <p-button type="submit" label="Save 儲存" icon="pi pi-check" [loading]="saving" />
+    <p-button
+      type="button"
+      label="Cancel 取消"
+      icon="pi pi-times"
+      severity="secondary"
+      [text]="true"
+      (onClick)="cancel()"
+    />
+  </div>
+</form>

@@ -1,0 +1,14 @@
+<div class="qr-box">
+  <span class="qr-title">{{ courseId }}</span>
+  @if (dataUrl()) {
+    <img class="qr-image" [src]="dataUrl()" [alt]="url" [title]="url" />
+  }
+  <p-button
+    label="下載 QR Code"
+    icon="pi pi-download"
+    severity="secondary"
+    [outlined]="true"
+    [disabled]="!dataUrl()"
+    (onClick)="download()"
+  />
+</div>

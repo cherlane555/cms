@@ -1,0 +1,133 @@
+.page {
+  padding: 1rem 1.5rem;
+}
+
+.page-header h2 {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 2px solid var(--p-surface-300, #cbd5e1);
+
+  .tab {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--p-surface-300, #cbd5e1);
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    background: var(--p-surface-100, #f1f5f9);
+    color: var(--p-text-color, #334155);
+    cursor: pointer;
+
+    &.active {
+      background: var(--p-surface-0, #fff);
+      color: var(--p-primary-color, #4f46e5);
+      font-weight: 700;
+      border-color: var(--p-surface-400, #94a3b8);
+    }
+  }
+}
+
+.week-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.75rem 0;
+
+  .week-arrow {
+    border: 1px solid var(--p-surface-300, #cbd5e1);
+    border-radius: 4px;
+    background: var(--p-surface-0, #fff);
+    padding: 0.25rem 0.75rem;
+    cursor: pointer;
+    font-family: monospace;
+  }
+
+  .week-label {
+    min-width: 9rem;
+    text-align: center;
+    font-weight: 700;
+  }
+}
+
+.day-group {
+  margin-bottom: 0.25rem;
+
+  .day-header {
+    background: var(--p-surface-200, #e2e8f0);
+    padding: 0.4rem 0.75rem;
+    font-weight: 700;
+    border: 1px solid var(--p-surface-300, #cbd5e1);
+  }
+}
+
+.slot-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+
+  .slot-no {
+    width: 1rem;
+    text-align: right;
+    font-weight: 600;
+  }
+
+  .row-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+  }
+
+  .link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--p-primary-color, #4f46e5);
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:disabled {
+      color: var(--p-surface-400, #94a3b8);
+      cursor: default;
+      text-decoration: none;
+    }
+
+    &.danger {
+      color: var(--p-red-600, #dc2626);
+    }
+  }
+
+  .cell {
+    border: 1px solid var(--p-surface-300, #cbd5e1);
+    border-radius: 3px;
+    padding: 0.25rem 0.5rem;
+    background: var(--p-surface-0, #fff);
+
+    &.code {
+      flex: 0 0 16rem;
+    }
+    &.topic {
+      flex: 0 0 20rem;
+    }
+    &.desc {
+      flex: 1;
+    }
+  }
+
+  .editor {
+    flex: 1;
+  }
+
+  &.editing {
+    align-items: flex-start;
+
+    .slot-no {
+      padding-top: 1rem;
+    }
+  }
+}

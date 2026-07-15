@@ -1,0 +1,153 @@
+<p-toast />
+
+<div class="page">
+  <div class="page-header">
+    <h2>課程詳細</h2>
+    <div class="actions">
+      <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" [outlined]="true" (onClick)="back()" />
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" [disabled]="!course()" />
+    </div>
+  </div>
+
+  @if (course(); as c) {
+    <p-card>
+      <ng-template pTemplate="title">基本資料</ng-template>
+      <div class="basic-info">
+        <div class="detail-grid">
+          <div class="item">
+            <span class="label">主代碼</span>
+            <span class="value">{{ c.pkid }}</span>
+          </div>
+          <div class="item">
+            <span class="label">顯示順序</span>
+            <span class="value">{{ c.displayOrder }}</span>
+          </div>
+          <div class="item">
+            <span class="label">簡介代碼</span>
+            <span class="value">{{ c.courseId }}</span>
+          </div>
+          <div class="item">
+            <span class="label">科目代碼</span>
+            <span class="value">{{ c.prodCourseId }}</span>
+          </div>
+          <div class="item full">
+            <span class="label">課程名稱</span>
+            <span class="value">{{ c.title }}</span>
+          </div>
+          <div class="item full">
+            <span class="label">正式名稱</span>
+            <span class="value">{{ c.officialTitle || '—' }}</span>
+          </div>
+          <div class="item">
+            <span class="label">網址代稱</span>
+            <span class="value">{{ c.friendlyUrl }}</span>
+          </div>
+          <div class="item">
+            <span class="label">原廠</span>
+            <span class="value">{{ c.partnerName }}</span>
+          </div>
+          <div class="item">
+            <span class="label">課程群組</span>
+            <span class="value">{{ c.courseGroupDescription || '—' }}</span>
+          </div>
+          <div class="item">
+            <span class="label">上架狀態</span>
+            <span class="value">{{ c.publishStatusDescription }}</span>
+          </div>
+          <div class="item">
+            <span class="label">上架日期</span>
+            <span class="value">{{ dateOf(c.scheduleOn) }}</span>
+          </div>
+          <div class="item">
+            <span class="label">下架日期</span>
+            <span class="value">{{ dateOf(c.scheduleOff) }}</span>
+          </div>
+          <div class="item">
+            <span class="label">時數</span>
+            <span class="value">{{ c.hour }}</span>
+          </div>
+          <div class="item">
+            <span class="label">定價</span>
+            <span class="value">{{ c.listPrice }}</span>
+          </div>
+          <div class="item">
+            <span class="label">點數</span>
+            <span class="value">{{ c.learningCredit }}</span>
+          </div>
+          <div class="item">
+            <span class="label">允許重聽</span>
+            <span class="value">{{ c.canRepeat ? '是' : '否' }}</span>
+          </div>
+        </div>
+
+        <app-course-qr [pkid]="c.pkid" [courseId]="c.courseId" />
+      </div>
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="title">課程內容</ng-template>
+      <div class="detail-grid">
+        <div class="item full">
+          <span class="label">教材</span>
+          <span class="value pre">{{ c.material || '—' }}</span>
+        </div>
+        <div class="item full">
+          <span class="label">課程目標</span>
+          <span class="value pre">{{ c.objective || '—' }}</span>
+        </div>
+        <div class="item full">
+          <span class="label">適合對象</span>
+          <span class="value pre">{{ c.target || '—' }}</span>
+        </div>
+        <div class="item full">
+          <span class="label">先備知識</span>
+          <span class="value pre">{{ c.prerequisites || '—' }}</span>
+        </div>
+        <div class="item full">
+          <span class="label">課程大綱</span>
+          <span class="value pre">{{ c.outline || '—' }}</span>
+        </div>
+        <div class="item full">
+          <span class="label">相關認證/考試</span>
+          <span class="value pre">{{ c.towardCertOrExam || '—' }}</span>
+        </div>
+        <div class="item full">
+          <span class="label">備註</span>
+          <span class="value pre">{{ c.note || '—' }}</span>
+        </div>
+        <div class="item full">
+          <span class="label">其他資訊</span>
+          <span class="value pre">{{ c.otherInfo || '—' }}</span>
+        </div>
+      </div>
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="title">認證（{{ certificationLabels().length }}）</ng-template>
+      @if (certificationLabels().length) {
+        <div class="chips">
+          @for (label of certificationLabels(); track label) {
+            <p-tag [value]="label" severity="secondary" />
+          }
+        </div>
+      } @else {
+        <span class="muted">尚無關聯認證</span>
+      }
+    </p-card>
+
+    <p-card>
+      <ng-template pTemplate="title">職務類別（{{ jobCategoryLabels().length }}）</ng-template>
+      @if (jobCategoryLabels().length) {
+        <div class="chips">
+          @for (label of jobCategoryLabels(); track label) {
+            <p-tag [value]="label" severity="secondary" />
+          }
+        </div>
+      } @else {
+        <span class="muted">尚無關聯職務類別</span>
+      }
+    </p-card>
+  } @else if (!loading()) {
+    <p-card><span class="muted">找不到課程</span></p-card>
+  }
+</div>

@@ -46,4 +46,36 @@ public class LookupsController : ControllerBase
         var groups = await _repository.GetCourseGroupsAsync(ct);
         return Ok(groups);
     }
+
+    /// <summary>Slim Certification list for the Course certifications multi-select.</summary>
+    [HttpGet("certifications")]
+    public async Task<ActionResult<IEnumerable<CertificationLookup>>> GetCertifications(CancellationToken ct)
+    {
+        var certifications = await _repository.GetCertificationsAsync(ct);
+        return Ok(certifications);
+    }
+
+    /// <summary>Slim JobCategory list for the Course job-categories multi-select.</summary>
+    [HttpGet("job-categories")]
+    public async Task<ActionResult<IEnumerable<JobCategoryLookup>>> GetJobCategories(CancellationToken ct)
+    {
+        var categories = await _repository.GetJobCategoriesAsync(ct);
+        return Ok(categories);
+    }
+
+    /// <summary>Slim TrainingCenter list for the FeaturedPromoItem tabs.</summary>
+    [HttpGet("training-centers")]
+    public async Task<ActionResult<IEnumerable<TrainingCenterLookup>>> GetTrainingCenters(CancellationToken ct)
+    {
+        var centers = await _repository.GetTrainingCentersAsync(ct);
+        return Ok(centers);
+    }
+
+    /// <summary>Resolve a Promotion2 row by its unique PromoCode (FeaturedPromoItem form lookup).</summary>
+    [HttpGet("promotions/by-code/{code}")]
+    public async Task<ActionResult<PromotionLookup>> GetPromotionByCode(string code, CancellationToken ct)
+    {
+        var promotion = await _repository.GetPromotionByCodeAsync(code, ct);
+        return promotion is null ? NotFound() : Ok(promotion);
+    }
 }

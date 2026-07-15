@@ -44,4 +44,37 @@ public class LookupRepository : ILookupRepository
             "SELECT pkid, Description FROM CourseGroup ORDER BY Description ASC",
             cancellationToken: ct));
     }
+
+    public async Task<IEnumerable<TrainingCenterLookup>> GetTrainingCentersAsync(CancellationToken ct = default)
+    {
+        using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        return await conn.QueryAsync<TrainingCenterLookup>(new CommandDefinition(
+            "SELECT pkid, Name FROM TrainingCenter ORDER BY DisplayOrder ASC",
+            cancellationToken: ct));
+    }
+
+    public async Task<IEnumerable<CertificationLookup>> GetCertificationsAsync(CancellationToken ct = default)
+    {
+        // Title is nchar(100) NULL -> RTRIM + coalesce.
+        using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        return await conn.QueryAsync<CertificationLookup>(new CommandDefinition(
+            "SELECT pkid, ISNULL(RTRIM(Title), '') AS Title FROM Certification ORDER BY RTRIM(Title) ASC",
+            cancellationToken: ct));
+    }
+
+    public async Task<IEnumerable<JobCategoryLookup>> GetJobCategoriesAsync(CancellationToken ct = default)
+    {
+        using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        return await conn.QueryAsync<JobCategoryLookup>(new CommandDefinition(
+            "SELECT pkid, Description FROM JobCategory ORDER BY Description ASC",
+            cancellationToken: ct));
+    }
+
+    public async Task<PromotionLookup?> GetPromotionByCodeAsync(string promoCode, CancellationToken ct = default)
+    {
+        using var conn = await _factory.CreateOpenConnectionAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<PromotionLookup>(new CommandDefinition(
+            "SELECT pkid, PromoCode, Topic, Description FROM Promotion2 WHERE PromoCode = @PromoCode",
+            new { PromoCode = promoCode }, cancellationToken: ct));
+    }
 }

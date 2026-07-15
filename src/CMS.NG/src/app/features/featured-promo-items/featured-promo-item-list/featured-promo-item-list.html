@@ -1,0 +1,87 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="page">
+  <div class="page-header">
+    <h2>上稿作業 FeaturedPromoItem</h2>
+  </div>
+
+  <div class="tabs">
+    @for (tc of trainingCenters(); track tc.pkid) {
+      <button
+        type="button"
+        class="tab"
+        [class.active]="activeTc() === tc.pkid"
+        (click)="selectTab(tc.pkid)"
+      >
+        {{ tc.name }}
+      </button>
+    }
+  </div>
+
+  <div class="week-nav">
+    <button type="button" class="week-arrow" (click)="prevWeek()">&lt;&lt;--</button>
+    <span class="week-label">{{ weekLabel() }}</span>
+    <button type="button" class="week-arrow" (click)="nextWeek()">--&gt;&gt;</button>
+  </div>
+
+  @for (day of days(); track day.dateStr) {
+    <div class="day-group">
+      <div class="day-header">{{ day.label }}</div>
+
+      @for (cell of day.cells; track cell.slot) {
+        @if (isEditing(day.dateStr, cell.slot)) {
+          <div class="slot-row editing">
+            <span class="slot-no">{{ cell.slot }}</span>
+            <app-featured-promo-item-form
+              class="editor"
+              [scheduleOn]="day.dateStr"
+              [trainingCenterPkid]="activeTc()!"
+              [slot]="cell.slot"
+              [item]="editing()!.item"
+              [prefill]="editing()!.prefill"
+              (saved)="onSaved()"
+              (cancelled)="onCancelled()"
+            />
+          </div>
+        } @else {
+          <div class="slot-row">
+            <span class="slot-no">{{ cell.slot }}</span>
+
+            <span class="row-actions">
+              <button
+                type="button"
+                class="link"
+                [disabled]="!cell.item || cell.slot === 3"
+                pTooltip="移到下一格 (Slot +1)"
+                (click)="moveDown(cell)"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                class="link"
+                [disabled]="!cell.item || cell.slot === 1"
+                pTooltip="移到上一格 (Slot -1)"
+                (click)="moveUp(cell)"
+              >
+                -
+              </button>
+              <button type="button" class="link" (click)="edit(day, cell)">Edit</button>
+              @if (cell.item; as item) {
+                <button type="button" class="link" (click)="copy(item)">Copy</button>
+                <button type="button" class="link danger" (click)="remove(item)">Delete</button>
+              } @else if (clipboard()) {
+                <button type="button" class="link" (click)="paste(day, cell)">Paste</button>
+              }
+            </span>
+
+            <input class="cell code" type="text" readonly [value]="cell.item?.promoCode ?? ''" />
+            <input class="cell topic" type="text" readonly [value]="cell.item?.topic ?? ''" />
+            <input class="cell desc" type="text" readonly [value]="cell.item?.description ?? ''" />
+          </div>
+        }
+      }
+    </div>
+  }
+</div>

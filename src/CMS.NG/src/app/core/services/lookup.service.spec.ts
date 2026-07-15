@@ -10,6 +10,10 @@ import { AppUserLookup } from '@core/models/app-role.model';
 import { PublishStatusLookup } from '@core/models/publish-status.model';
 import { PartnerLookup } from '@core/models/partner.model';
 import { CourseGroupLookup } from '@core/models/course-group.model';
+import {
+  PromotionLookup,
+  TrainingCenterLookup,
+} from '@core/models/featured-promo-item.model';
 
 describe('LookupService', () => {
   let service: LookupService;
@@ -73,5 +77,40 @@ describe('LookupService', () => {
     req.flush(groups);
 
     expect(result?.[0].description).toBe('資料庫管理');
+  });
+
+  it('getTrainingCenters GETs the training-centers lookup', () => {
+    const centers: TrainingCenterLookup[] = [
+      { pkid: 1, name: '台北' },
+      { pkid: 5, name: '線上研討會' },
+    ];
+    let result: TrainingCenterLookup[] | undefined;
+    service.getTrainingCenters().subscribe((r) => (result = r));
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/api/lookups/training-centers`);
+    expect(req.request.method).toBe('GET');
+    req.flush(centers);
+
+    expect(result?.length).toBe(2);
+    expect(result?.[0].name).toBe('台北');
+  });
+
+  it('getPromotionByCode GETs the promotion by its URL-encoded code', () => {
+    const promo: PromotionLookup = {
+      pkid: 100,
+      promoCode: '20251215_n8n',
+      topic: 'n8n自動化三部曲',
+      description: '從自動化新手到企業級AI架構師學習路徑',
+    };
+    let result: PromotionLookup | undefined;
+    service.getPromotionByCode('20251215_n8n').subscribe((r) => (result = r));
+
+    const req = httpMock.expectOne(
+      `${environment.apiBaseUrl}/api/lookups/promotions/by-code/20251215_n8n`,
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush(promo);
+
+    expect(result?.pkid).toBe(100);
   });
 });
