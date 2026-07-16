@@ -6,6 +6,9 @@
     <div class="actions">
       <app-row-audit-badge tableName="Course" [pkid]="course()?.pkid" />
       <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" [outlined]="true" (onClick)="back()" />
+      @if (canExportBrochure()) {
+        <p-button label="課程簡章" icon="pi pi-file-pdf" severity="secondary" (onClick)="brochure()" />
+      }
       <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" [disabled]="!course()" />
     </div>
   </div>

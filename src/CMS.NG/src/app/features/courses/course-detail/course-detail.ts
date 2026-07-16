@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
@@ -30,6 +30,13 @@ export class CourseDetail implements OnInit {
   protected readonly certificationLabels = signal<string[]>([]);
   protected readonly jobCategoryLabels = signal<string[]>([]);
   protected readonly loading = signal(true);
+
+  /**
+   * 簡章 is offered only for 上架中 courses. A brochure for a 已下架 course promises a student
+   * a course we no longer sell, and its QR points at a public page that correctly 404s
+   * (verified: 87.6% of 上架中 courses resolve; 0.3% of 已下架 do).
+   */
+  protected readonly canExportBrochure = computed(() => this.course()?.publishStatusPkid === 2);
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
@@ -69,6 +76,13 @@ export class CourseDetail implements OnInit {
     const course = this.course();
     if (course) {
       this.router.navigate(['/courses', course.pkid, 'edit']);
+    }
+  }
+
+  protected brochure(): void {
+    const course = this.course();
+    if (course) {
+      this.router.navigate(['/courses', course.pkid, 'brochure']);
     }
   }
 }

@@ -1,0 +1,70 @@
+@if (loading()) {
+  <p class="status">載入中…</p>
+} @else if (error()) {
+  <p class="status">{{ error() }}</p>
+} @else if (course(); as c) {
+  <button type="button" class="print-btn" (click)="print()">列印 / 存成 PDF</button>
+
+  <article class="sheet" #sheet>
+    <div class="safe">
+      <header class="head">
+        <p class="partner">{{ c.partnerName }}</p>
+        <h1 [class]="titleClass()">{{ c.title }}</h1>
+        @if (c.officialTitle) {
+          <p class="official">{{ c.officialTitle }}</p>
+        }
+        <dl class="facts">
+          <div><dt>時數</dt><dd>{{ c.hour }} 小時</dd></div>
+          <div><dt>定價</dt><dd>NT$ {{ c.listPrice | number:'1.0-0' }}</dd></div>
+          <div><dt>課程代碼</dt><dd>{{ c.courseId }}</dd></div>
+        </dl>
+      </header>
+
+      <div class="body" #body>
+        @if (objectiveText()) {
+          <section class="block">
+            <h2>課程目標</h2>
+            <p class="prose">{{ objectiveText() }}</p>
+          </section>
+        }
+
+        @if (targetText()) {
+          <section class="block">
+            <h2>適合對象</h2>
+            <p class="prose">{{ targetText() }}</p>
+          </section>
+        }
+
+        @if (chapters().length) {
+          <section class="block outline">
+            <h2>課程大綱</h2>
+            @for (ch of chapters(); track $index) {
+              <div class="chapter">
+                @if (ch.heading) {
+                  <h3><span class="num">{{ $index + 1 }}</span>{{ ch.heading }}</h3>
+                }
+                @for (line of ch.lines; track $index) {
+                  <p class="leaf">{{ line }}</p>
+                }
+              </div>
+            }
+          </section>
+        }
+      </div>
+    </div>
+
+    <footer class="foot">
+      <div class="foot-text">
+        @if (truncated()) {
+          <p class="notice">大綱已節錄，完整內容請掃描 QR 碼</p>
+        } @else {
+          <p class="notice">課程詳細資訊請掃描 QR 碼</p>
+        }
+        <p class="brand">{{ c.partnerName }} 授權課程</p>
+      </div>
+      @if (qrSvg(); as svg) {
+        <div class="qr" [innerHTML]="svg"></div>
+      }
+    </footer>
+  </article>
+}
