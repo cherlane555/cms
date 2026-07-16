@@ -50,7 +50,7 @@ export class CourseBrochure implements OnInit, OnDestroy {
   private originalTitle = '';
 
   private readonly body = viewChild<ElementRef<HTMLElement>>('body');
-  private readonly sheet = viewChild<ElementRef<HTMLElement>>('sheet');
+  private readonly foot = viewChild<ElementRef<HTMLElement>>('foot');
 
   protected readonly course = signal<Course | null>(null);
   protected readonly qrSvg = signal<SafeHtml | null>(null);
@@ -210,18 +210,24 @@ export class CourseBrochure implements OnInit, OnDestroy {
   }
 
   /**
-   * Measures the content wrapper against the sheet's live area.
+   * Measures the content wrapper against the FOOTER's top, not the sheet's bottom. The footer is
+   * a 30mm `flex: none` band in the same column; `.safe` is locked to `297mm − 30mm` and does not
+   * clip, so `.body` overflows visibly into the footer's band, where the footer's opaque
+   * background (painted later, so on top) hides it. Measuring against the sheet bottom would call
+   * that content "fitting" while 30mm of it sat hidden behind the footer — neither visible nor
+   * announced, the one thing the Overflow Contract forbids. The footer's top is the real floor.
+   *
    * Deliberately NOT `sheet.scrollHeight > sheet.clientHeight`: the sheet is `overflow: hidden`
    * for clipping, and a non-scrolling box reports its padding-box height for scrollHeight,
    * so that comparison can never fire.
    */
   private overflows(): boolean {
     const body = this.body()?.nativeElement;
-    const sheet = this.sheet()?.nativeElement;
-    if (!body || !sheet) {
+    const foot = this.foot()?.nativeElement;
+    if (!body || !foot) {
       return false;
     }
-    return body.getBoundingClientRect().bottom > sheet.getBoundingClientRect().bottom - 1;
+    return body.getBoundingClientRect().bottom > foot.getBoundingClientRect().top - 1;
   }
 
   protected print(): void {

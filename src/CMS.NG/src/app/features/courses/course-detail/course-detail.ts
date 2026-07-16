@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { TagModule } from 'primeng/tag';
@@ -70,7 +70,11 @@ export class CourseDetail implements OnInit {
       jobCategories: this.lookups.getJobCategories(),
       // NOT LookupService.getPublishStatuses() — that returns PublishStatusLookup, which is
       // {pkid, description} and carries no flags. This is the one that has isPublished.
-      statuses: this.publishStatuses.getAll(),
+      //
+      // Fails safe: this lookup only gates the brochure button, so a failure here must not sink
+      // the whole page (forkJoin errors if any source does). On error we fall back to [], which
+      // makes canExportBrochure() return false — the button disables, the course still renders.
+      statuses: this.publishStatuses.getAll().pipe(catchError(() => of([] as PublishStatus[]))),
     }).subscribe({
       next: ({ course, certifications, jobCategories, statuses }) => {
         this.course.set(course);
