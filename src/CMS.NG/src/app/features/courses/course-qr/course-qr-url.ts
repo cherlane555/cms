@@ -6,7 +6,7 @@ import { toString } from 'qrcode';
  * so `courseId` is kept only for URL readability.
  *
  * Resolves for 87.6% of 上架中 courses. 草稿 and 已下架 courses correctly 404, which is why
- * the brochure button is gated on PublishStatus 2.
+ * the brochure button is gated on the status's `isPublished` flag.
  */
 export function publicCourseUrl(pkid: number, courseId: string): string {
   return `https://www.uuu.com.tw/Course/Show/${pkid}/${encodeURIComponent(courseId)}`;

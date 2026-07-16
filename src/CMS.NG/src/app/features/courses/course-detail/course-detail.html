@@ -6,10 +6,18 @@
     <div class="actions">
       <app-row-audit-badge tableName="Course" [pkid]="course()?.pkid" />
       <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" [outlined]="true" (onClick)="back()" />
-      @if (canExportBrochure()) {
-        <p-button label="課程簡章" icon="pi pi-file-pdf" severity="secondary" (onClick)="brochure()" />
-      }
       <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" [disabled]="!course()" />
+      <!-- Disabled with a reason, never absent: 60% of courses (648/1,084) are not 上架中, so on
+           6 pages in 10 an @if would delete the feature and explain nothing. -->
+      <span [pTooltip]="canExportBrochure() ? '' : '僅上架中課程可下載簡介'" tooltipPosition="bottom">
+        <p-button
+          label="下載課程簡介 PDF"
+          icon="pi pi-file-pdf"
+          severity="secondary"
+          (onClick)="brochure()"
+          [disabled]="!course() || !canExportBrochure()"
+        />
+      </span>
     </div>
   </div>
 
