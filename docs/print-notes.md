@@ -37,8 +37,27 @@ work; measured, it still produces two pages while the body margin is at default.
 **This is not stylistic.** Skia forces any font carrying `fvar` to **Type3** with instanced
 outlines, on every platform, by design — not a bug. A Type3 brochure fails the "text is
 selectable and searchable" bar, which is the entire reason we are not rasterising with
-html2canvas. Google Fonts' css2 endpoint serves the static face by default; a `wght` **range** in
-the query (`:wght@100..900`) is what opts into the variable one.
+html2canvas.
+
+**Request ONE weight per css2 call.** Any multi-weight request returns the variable font — a
+list (`:wght@400;700`) does it just as much as a range (`:wght@100..900`). The tell is that
+several `@font-face` blocks share one file, because the browser instances the weights:
+
+```
+:wght@400        faces=7   uniqueFiles=7   ← static, 1:1
+:wght@700        faces=7   uniqueFiles=7   ← static, 1:1
+:wght@400;700    faces=14  uniqueFiles=7   ← VARIABLE, 2 weights per file
+```
+
+So: **`faces == uniqueFiles` → static. `faces > uniqueFiles` → variable.** That comparison is the
+cheap, reliable check. Do not try to detect `fvar` by scanning the woff2 bytes — woff2 encodes
+known table tags as 5-bit indices rather than ASCII, so a byte search for `fvar` returns false on
+every variable font and looks like a pass.
+
+`public/fonts/noto-sans-tc/` was built with one request per weight (400, then 700), which is why
+`pdffonts` shows CIDFontType2 rather than Type3. Writing the natural `:wght@400;700` instead
+would have silently shipped a Type3 brochure — and a check that only inspects the output PDF
+would still pass on the day it was built, because the regression arrives with the next font.
 
 Self-hosted rather than linked because headless Chromium in CI has no CJK fonts at all — a
 machine-font fallback renders tofu the moment a render leaves a Windows laptop. Windows headless
