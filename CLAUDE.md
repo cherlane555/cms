@@ -25,5 +25,6 @@ standalone, PrimeNG v20). SQL Server `.\SQLEXPRESS`, database `CMS`.
 | [docs/setup-notes.md](docs/setup-notes.md) | running/building/testing, or needing repo layout & one-time context |
 | [docs/scaffolding-notes.md](docs/scaffolding-notes.md) | any `/crud` run or a per-entity schema question |
 | [docs/auth-notes.md](docs/auth-notes.md) | touching login, JWT, roles, profile, or password / reset flows |
+| [docs/print-notes.md](docs/print-notes.md) | building a print/PDF route, a `data: { bare: true }` shell-less route, or touching the 課程簡章 |
 
 Test login: `miles@uuu.com.tw` / `CMS4fun#` (the `defaultPassword`; roles **Admin + User**).
