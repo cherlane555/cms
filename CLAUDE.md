@@ -8,7 +8,6 @@ standalone, PrimeNG v20). SQL Server `.\SQLEXPRESS`, database `CMS`.
 
 - **PrimeNG stays on v20** — Angular is 20; `primeng@latest` (v21) needs Angular 21 and breaks install.
 - UI text is Traditional Chinese (with English), e.g. 新增 / 編輯 / 儲存 / 刪除.
-- New entity features follow `spec/code-gen.convention.md` and the AppRole reference feature.
 - **Auth is secure-by-default:** every endpoint requires a JWT except `AuthController.Login`; passwords
   are hashed **server-side only** (lowercase-hex SHA-256) — no password or hash crosses the wire.
 - **Cross-cutting (every feature):** repositories audit Insert/Update/Delete to `RowAudit` via
@@ -20,7 +19,7 @@ standalone, PrimeNG v20). SQL Server `.\SQLEXPRESS`, database `CMS`.
 
 | File | Read before… |
 |------|--------------|
-| [spec/code-gen.convention.md](spec/code-gen.convention.md) | generating or changing an entity CRUD feature (canonical patterns) |
+| [spec/code-gen.convention.md](spec/code-gen.convention.md) | generating or changing an entity CRUD feature — canonical patterns; new features follow it and the AppRole reference feature |
 | [docs/cross-cutting-notes.md](docs/cross-cutting-notes.md) | wiring a new repository or detail/form page (row audit), or touching error handling |
 | [docs/setup-notes.md](docs/setup-notes.md) | running/building/testing, or needing repo layout & one-time context |
 | [docs/scaffolding-notes.md](docs/scaffolding-notes.md) | any `/crud` run or a per-entity schema question |
