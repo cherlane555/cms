@@ -12,13 +12,21 @@
 export interface OutlineChapter {
   /** Heading text without the `N.` marker, e.g. "課程介紹". Empty for the prose fallback. */
   heading: string;
+  /**
+   * The number the author wrote, e.g. 4 from `4.` — NOT the render position. An outline that
+   * skips (`1. 2. 4.`) prints its own numbering; renumbering it silently invents a chapter 3.
+   * Absent on the prose fallback and the unheaded lead-in, which have no marker to carry.
+   */
+  num?: number;
   /** Body lines under the heading, blank lines dropped. */
   lines: string[];
 }
 
 /** Line-anchored chapter marker: `1.`, `10.` at line start. Mid-line decimals (`3.5`, */
 /** `版本 1.0`) do not match — a loose `%1.%` probe over-counted this convention by 2.2pts. */
-const CHAPTER_RE = /^[ \t]*(\d{1,2})\.[ \t]*(.*)$/;
+/** `(?!\d)` extends that to LINE-LEADING decimals: `3.5 小時的實作` is a body line, not */
+/** chapter 3 headed "5 小時的實作". 4.7% of rows carry a decimal. */
+const CHAPTER_RE = /^[ \t]*(\d{1,2})\.(?!\d)[ \t]*(.*)$/;
 
 /**
  * Strips markup to plain text. `DOMParser` on a detached document neither executes scripts
@@ -49,7 +57,7 @@ export function parseOutline(raw: string | null): OutlineChapter[] {
     }
     const match = CHAPTER_RE.exec(line);
     if (match) {
-      chapters.push({ heading: match[2].trim(), lines: [] });
+      chapters.push({ heading: match[2].trim(), num: Number(match[1]), lines: [] });
     } else if (chapters.length) {
       chapters[chapters.length - 1].lines.push(line);
     } else {
