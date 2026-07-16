@@ -23,8 +23,9 @@ still a child of the guarded parent and still needs a JWT.
 |---|---|---|
 | A blank page 2 on every PDF | UA default `body { margin: 8px }` overflows the page box (`1122.52px + 16px`). `@page { margin: 0 }` zeroes the *page* margin, not the body's. | `html, body { margin: 0; padding: 0 }` (already in `styles.scss`) |
 | Every tint, rule and ink block vanishes | Chrome's print dialog defaults **Background graphics OFF** | `print-color-adjust: exact` on the sheet **and** tick the box in the dialog |
-| The URL, date and a page number are stamped on the sheet | Dialog defaults **Headers and footers ON** | Only the dialog can turn it off. `page.pdf({ displayHeaderFooter: false })` is already the default on the Playwright path. |
+| The URL, date and a page number are stamped on the sheet | Dialog defaults **Headers and footers ON** | **Only the dialog can turn it off, by hand.** There is no headless path here — delivery is `window.print()`. The page prints the three dialog settings next to the button because that is the only way the sheet is reproducible. |
 | Everything is ~95% the size you designed | `margin: 0` full-bleed trips "Fit to printable area" — consumer printers have a ~4-6mm non-printable border | Keep ink inside a 10mm inset; set Margins: None / Scale: 100% when proofing |
+| Every course saves as the same `CMSNG.pdf` | Chrome takes the Save-as-PDF filename from `document.title`, and this app never sets it | `Title.setTitle()` per route, restored in `ngOnDestroy`. This is the only filename lever on the print path — it is not "uncontrolled", it was unset. The same title is what Chrome stamps top-left when headers are on. |
 
 **A4 is 297mm = 1122.519…px at 96dpi — non-integral, and irrelevant.** Chrome swallows ~0.5px of
 overflow, so the fraction sits inside tolerance. `296.8mm` is a widely-repeated fix that does not
