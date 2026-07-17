@@ -1,5 +1,6 @@
 using CMS.API.Models;
 using CMS.API.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
@@ -39,7 +40,12 @@ public class PublishStatusesController : ControllerBase
         return status is null ? NotFound() : Ok(status);
     }
 
-    /// <summary>Create a publish status. The pkid is user-assigned (supplied in the body).</summary>
+    /// <summary>
+    /// Create a publish status (Admin only). The pkid is user-assigned (supplied in the body).
+    /// Course.PublishStatus_pkid FKs to this table and business logic (e.g. the course-brochure's
+    /// isPublished gate) depends on its rows, so this matches the nav's own Admin-only grouping.
+    /// </summary>
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<ActionResult<PublishStatus>> Create([FromBody] PublishStatusRequest request, CancellationToken ct)
     {
@@ -61,11 +67,19 @@ public class PublishStatusesController : ControllerBase
             return Conflict($"PublishStatus '{request.Pkid}' already exists.");
         }
 
-        var created = await _repository.CreateAsync(request, ct);
-        return CreatedAtAction(nameof(GetById), new { id = created.Pkid }, created);
+        try
+        {
+            var created = await _repository.CreateAsync(request, ct);
+            return CreatedAtAction(nameof(GetById), new { id = created.Pkid }, created);
+        }
+        catch (PublishStatusConflictException ex)
+        {
+            return Conflict(ex.Message);
+        }
     }
 
-    /// <summary>Update a publish status (pkid taken from the body — it is the primary key).</summary>
+    /// <summary>Update a publish status (pkid taken from the body — it is the primary key). Admin only.</summary>
+    [Authorize(Roles = "Admin")]
     [HttpPut]
     public async Task<IActionResult> Update([FromBody] PublishStatusRequest request, CancellationToken ct)
     {
@@ -86,7 +100,8 @@ public class PublishStatusesController : ControllerBase
         return updated ? NoContent() : NotFound();
     }
 
-    /// <summary>Delete a publish status by pkid.</summary>
+    /// <summary>Delete a publish status by pkid (Admin only).</summary>
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(byte id, CancellationToken ct)
     {

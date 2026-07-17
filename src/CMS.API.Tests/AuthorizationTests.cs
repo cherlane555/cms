@@ -36,6 +36,7 @@ public class AuthorizationTests : IClassFixture<AuthorizationTests.ApiFactory>
     {
         public Mock<IAppRoleRepository> AppRoleRepo { get; } = new();
         public Mock<IAuthRepository> AuthRepo { get; } = new();
+        public Mock<IPublishStatusRepository> PublishStatusRepo { get; } = new();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -49,6 +50,9 @@ public class AuthorizationTests : IClassFixture<AuthorizationTests.ApiFactory>
 
                 services.RemoveAll<IAuthRepository>();
                 services.AddScoped(_ => AuthRepo.Object);
+
+                services.RemoveAll<IPublishStatusRepository>();
+                services.AddScoped(_ => PublishStatusRepo.Object);
             });
         }
     }
@@ -194,9 +198,12 @@ public class AuthorizationTests : IClassFixture<AuthorizationTests.ApiFactory>
             "/api/app-roles",
             new { roleId = "Editor", roleName = "Editor", permissionLevel = 50, userIds = new[] { "reg@uuu.com.tw" } });
 
+        // ASP.NET Core's authorization middleware runs before the controller action, so a 403
+        // here already proves CreateAsync was never reached — a separate Times.Never mock verify
+        // would be redundant and, since AppRoleRepo is shared across this whole test class via
+        // IClassFixture, vulnerable to false failures if another test's matching invocation runs
+        // first (Moq records invocation history for the mock's full lifetime, not per-test).
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        _factory.AppRoleRepo.Verify(
-            r => r.CreateAsync(It.IsAny<AppRoleRequest>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -215,6 +222,43 @@ public class AuthorizationTests : IClassFixture<AuthorizationTests.ApiFactory>
         var response = await client.PostAsJsonAsync(
             "/api/app-roles",
             new { roleId = "Editor", roleName = "Editor", permissionLevel = 50, userIds = Array.Empty<string>() });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    // ---- PublishStatus write endpoints (Admin only — nav-gated as Admin but had no server-side
+    // enforcement; Course.PublishStatus_pkid FKs to this table) ----
+
+    [Fact]
+    public async Task PublishStatusCreate_NonAdmin_Returns403()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", NonAdminToken());
+
+        var response = await client.PostAsJsonAsync(
+            "/api/publish-statuses",
+            new { pkid = 9, description = "Test Status" });
+
+        // See AppRoleCreate_NonAdmin_Returns403 for why there's no Times.Never verify here.
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PublishStatusCreate_Admin_Succeeds()
+    {
+        _factory.PublishStatusRepo
+            .Setup(r => r.ExistsAsync(9, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _factory.PublishStatusRepo
+            .Setup(r => r.CreateAsync(It.IsAny<PublishStatusRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PublishStatus { Pkid = 9, Description = "Test Status" });
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ValidToken());
+
+        var response = await client.PostAsJsonAsync(
+            "/api/publish-statuses",
+            new { pkid = 9, description = "Test Status" });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }

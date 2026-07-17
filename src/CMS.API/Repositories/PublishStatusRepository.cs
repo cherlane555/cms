@@ -2,6 +2,7 @@ using CMS.API.Auditing;
 using CMS.API.Data;
 using CMS.API.Models;
 using Dapper;
+using Microsoft.Data.SqlClient;
 
 namespace CMS.API.Repositories;
 
@@ -89,17 +90,29 @@ FROM PublishStatus s";
 
         // pkid is a user-assigned tinyint (NOT IDENTITY): it is written explicitly and there is
         // no SCOPE_IDENTITY() to read back.
-        await conn.ExecuteAsync(new CommandDefinition(@"
+        //
+        // The controller's ExistsAsync check runs on a separate, earlier connection — a
+        // concurrent create for the same pkid can race past it. pkid's own PRIMARY KEY
+        // constraint is the real backstop; catch its violation here instead of letting it
+        // surface as a raw 500.
+        try
+        {
+            await conn.ExecuteAsync(new CommandDefinition(@"
 INSERT INTO PublishStatus (pkid, Description, IsDraft, IsPublished, IsDiscontinued)
 VALUES (@Pkid, @Description, @IsDraft, @IsPublished, @IsDiscontinued);",
-            new
-            {
-                request.Pkid,
-                request.Description,
-                request.IsDraft,
-                request.IsPublished,
-                request.IsDiscontinued
-            }, tx, cancellationToken: ct));
+                new
+                {
+                    request.Pkid,
+                    request.Description,
+                    request.IsDraft,
+                    request.IsPublished,
+                    request.IsDiscontinued
+                }, tx, cancellationToken: ct));
+        }
+        catch (SqlException ex) when (ex.Number is 2627 or 2601)
+        {
+            throw new PublishStatusConflictException($"PublishStatus '{request.Pkid}' already exists.");
+        }
 
         var created = new PublishStatus
         {
