@@ -1,7 +1,7 @@
 <!-- Global toast: server-error messages raised by the HTTP interceptor. -->
 <p-toast position="top-right" />
 
-@if (isAuthenticated()) {
+@if (isAuthenticated() && !bare()) {
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">

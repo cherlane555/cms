@@ -118,6 +118,14 @@ export const routes: Routes = [
           import('@features/courses/course-detail/course-detail').then((m) => m.CourseDetail),
       },
       {
+        path: 'courses/:id/brochure',
+        // `bare`: render without the app shell. A print document has no nav, and PrimeNG's
+        // theme CSS is a screen design system that has no business on paper.
+        data: { bare: true },
+        loadComponent: () =>
+          import('@features/courses/course-brochure/course-brochure').then((m) => m.CourseBrochure),
+      },
+      {
         path: 'courses/:id/edit',
         loadComponent: () =>
           import('@features/courses/course-form/course-form').then((m) => m.CourseForm),

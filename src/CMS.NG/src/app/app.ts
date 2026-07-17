@@ -1,5 +1,14 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
+import { filter, map, startWith } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
 import { AuthService, ADMIN_ROLE } from '@core/auth/auth.service';
@@ -26,11 +35,28 @@ interface NavGroup {
 export class App {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly brand = 'UWA';
 
   protected readonly userName = this.auth.userName;
   protected readonly isAuthenticated = this.auth.isAuthenticated;
+
+  /** True when the active route sets `data: { bare: true }` — render the outlet with no shell. */
+  protected readonly bare = toSignal(
+    this.router.events.pipe(
+      filter((e) => e instanceof NavigationEnd),
+      startWith(null),
+      map(() => {
+        let r = this.route.firstChild;
+        while (r?.firstChild) {
+          r = r.firstChild;
+        }
+        return r?.snapshot.data?.['bare'] === true;
+      }),
+    ),
+    { initialValue: false },
+  );
 
   // Sidebar nav. The 系統管理 Admin group is role-gated; the other entries are visual placeholders.
   private readonly allNavGroups: NavGroup[] = [

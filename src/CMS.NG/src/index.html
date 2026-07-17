@@ -6,6 +6,12 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!--
+    Self-hosted Noto Sans TC (static 400/700) for the 課程簡章 print route. The woff2 slices
+    are fetched lazily via unicode-range, so pages that don't set CJK in this face pay only
+    for the @font-face rules. Subsetting to the project's real codepoints is a known follow-up.
+  -->
+  <link rel="stylesheet" href="fonts/noto-sans-tc/noto-sans-tc.css">
 </head>
 <body>
   <app-root></app-root>
