@@ -19,6 +19,9 @@
         autocomplete="username"
         placeholder="miles@uuu.com.tw"
       />
+      @if (form.controls.userId.invalid && form.controls.userId.touched) {
+        <small class="error">帳號為必填</small>
+      }
     </label>
 
     <label class="field">
@@ -31,6 +34,9 @@
         inputStyleClass="w-full"
         styleClass="w-full"
       />
+      @if (form.controls.password.invalid && form.controls.password.touched) {
+        <small class="error">密碼為必填</small>
+      }
     </label>
 
     <p-button

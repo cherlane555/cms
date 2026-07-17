@@ -69,6 +69,11 @@
   ::ng-deep .p-password {
     width: 100%;
   }
+
+  .error {
+    color: #ef4444;
+    font-size: 0.8rem;
+  }
 }
 
 ::ng-deep .login-error {
