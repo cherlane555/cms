@@ -38,17 +38,19 @@ login, tokens, roles, or any password reset/change. General run/test setup is in
   lifetime + signing key, `RoleClaimType = ClaimTypes.Role`, key from `IJwtSigningKeyProvider`.
 - **Authorization:** global **fallback policy** `RequireAuthenticatedUser()` in `Program.cs` → every
   endpoint needs a token unless it has `[AllowAnonymous]`. Middleware order: `UseAuthentication()`
-  **before** `UseAuthorization()`.
+  **before** `UseAuthorization()`. This only proves "logged in," never role — per-feature
+  `[Authorize(Roles = "Admin")]` gating is a separate, easy-to-forget step; see
+  [cross-cutting-notes.md](cross-cutting-notes.md#authorization--write-endpoints-for-role-gated-features).
 - **`[AllowAnonymous]` goes on the `Login` action, NOT the `AuthController` class** — a class-level
   `[AllowAnonymous]` overrides action-level `[Authorize]` and would leak onto the other Auth endpoints.
 - **Endpoints** (all under `/api/Auth`; every one except login resolves the user from the JWT's
   `userId` claim — never from the body):
   | Route | Guard | Behaviour |
   |-------|-------|-----------|
-  | `POST /login` | `[AllowAnonymous]` | verify IsActive=1 + `PasswordHash == SHA256(pw)`; returns `{userId, userName, accessToken}`; generic 401 on any failure |
+  | `POST /login` | `[AllowAnonymous]` | verify IsActive=1 + `PasswordHasher.Verify(pw, PasswordHash)`; returns `{userId, userName, accessToken}`; generic 401 on any failure |
   | `PUT /profile` | `[Authorize]` | update **UserName only** for the JWT user (required, trimmed); ignores any body `userId` |
-  | `POST /change-password` | `[Authorize]` | verify current pw → complexity → new==confirm → set `PasswordHash`+`PasswordUpdatedTime` |
-  | `POST /reset-password` | `[Authorize(Roles="Admin")]` | body `{userId}`; set target to `SHA256(defaultPassword)`+timestamp; non-Admin → **403** |
+  | `POST /change-password` | `[Authorize]` | verify current pw → complexity → new==confirm → set `PasswordHash`+`PasswordUpdatedTime` (`PasswordHasher.Hash`) |
+  | `POST /reset-password` | `[Authorize(Roles="Admin")]` | body `{userId}`; set target to `PasswordHasher.Hash(defaultPassword)`+timestamp; non-Admin → **403** |
 - **`AuthRepository`:** reads appConfig props via a shared helper (`GetSigningKeyAsync`,
   `GetDefaultPasswordAsync`); `GetLoginUserAsync` (user + roles), `UpdateUserNameAsync`,
   `UpdatePasswordAsync` (stamps `PasswordUpdatedTime = GETUTCDATE()`).

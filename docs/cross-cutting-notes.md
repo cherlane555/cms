@@ -1,7 +1,8 @@
-# Cross-cutting conventions — Row Audit & Exception Handling (Lab 06)
+# Cross-cutting conventions — Row Audit, Exception Handling & Authorization (Lab 06)
 
-Read this before wiring a new entity's repository or pages, or touching error handling.
-The non-negotiable one-liners live in `CLAUDE.md`; this file is the how.
+Read this before wiring a new entity's repository or pages, touching error handling, or gating a
+role-restricted feature's write endpoints. The non-negotiable one-liners live in `CLAUDE.md`; this
+file is the how.
 
 ## Row Audit — backend
 
@@ -67,3 +68,34 @@ page-header actions bar** (this app's "toolbar #start"):
   `app.config.ts`) + the global `<p-toast>` in the App shell. 401 still clears the session and
   redirects to `/login`; 400 validation errors stay on the form. Page-level toasts keep their own
   component-scoped `MessageService` — don't remove either.
+
+## Authorization — write endpoints for role-gated features
+
+The global fallback policy (`RequireAuthenticatedUser()`, see auth-notes) only proves a caller is
+*logged in* — it says nothing about role. `app.ts`'s `navGroups` computed signal hides a sidebar
+group when the user lacks its `requiresRole`, but that is a **display filter only**: no route guard
+enforces it (`auth.guard.ts` checks authentication, not role), and the API is the real boundary. A
+non-admin caller can always reach a hidden route's endpoints directly.
+
+**Two features shipped without a server-side gate and were exploitable before the fix:**
+
+- `AppRolesController` — Create/Update write the request's `UserIds` straight to `AppUserRole`,
+  the exact table `AuthRepository.GetLoginUserAsync` reads to build a JWT's role claims. Any
+  authenticated caller could self-assign to `RoleId: "Admin"` and re-login with full admin access.
+- `PublishStatusesController` — nav-grouped under 系統管理 Admin alongside AppRole, but had no
+  `[Authorize]` at all. `Course.PublishStatus_pkid` FKs to this table and business logic (the
+  brochure's `isPublished` gate) depends on its rows.
+
+**Rule:** if a feature's nav entry carries `requiresRole` (`app.ts`), add
+`[Authorize(Roles = "Admin")]` to its Create/Update/Delete actions — mirror
+`AuthController.ResetPassword`'s existing pattern. `GetAll`/`Query`/`GetById` can stay open to any
+authenticated user unless the read itself is sensitive.
+
+**The TOCTOU that comes with it:** every entity here checks `ExistsAsync` (a separate, earlier
+connection) before `CreateAsync` (a new transaction) — a concurrent create for the same key can
+race past the check. The PK constraint is the real backstop; catch its violation
+(`SqlException.Number is 2627 or 2601`) inside `CreateAsync` and throw a typed
+`{Entity}ConflictException` (see `RoleConflictException`, `PublishStatusConflictException`,
+`SlotConflictException`) for the controller to map to 409, instead of letting a raw `SqlException`
+surface as a 500. Verify with a real two-concurrent-transaction test against the live DB (see
+`AppRoleRepositoryConcurrencyTests`) — a mocked test can't reproduce the race.

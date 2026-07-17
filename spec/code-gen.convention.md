@@ -17,6 +17,10 @@
   - Route: `/api/{tablePlural}`; `PUT` takes pkid from body (no route param)
   - String PKs: route `{id}` (no `:int` constraint); service uses `encodeURIComponent`
   - `DateOnly`/`TimeOnly` fields: register Dapper type handlers (already in Program.cs)
+  - If the sidebar entry (below) goes under a `requiresRole` nav group, add
+    `[Authorize(Roles = "Admin")]` to Create/Update/Delete — nav-hiding is not enforcement; see
+    cross-cutting-notes.md. `Create`'s `ExistsAsync` pre-check can race the insert: catch the PK
+    violation (`SqlException.Number is 2627 or 2601`) and throw a typed `{Entity}ConflictException`.
   
  ## Frontend
 
