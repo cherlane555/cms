@@ -133,14 +133,13 @@ export class CourseGroupList implements OnInit {
     this.router.navigate(['/course-groups', group.pkid, 'edit']);
   }
 
-  // FK_Course_CourseGroup is ON DELETE CASCADE, so deleting a group also deletes every course
-  // filed under it. The confirmation copy calls that out — the DB gives no second chance.
+  // The server blocks the delete with 409 while any course still references the group
+  // (CourseGroupsController.Delete) rather than cascading — the confirmation copy and error
+  // handling below must match that contract, not the FK's ON DELETE CASCADE definition.
   protected remove(group: CourseGroup): void {
     this.confirm.confirm({
       header: '刪除確認',
-      message:
-        `確定要刪除主代碼 <b>${group.pkid}</b>「${group.description}」？` +
-        `<br><small>此群組下的所有課程將一併刪除。</small>`,
+      message: `確定要刪除主代碼 <b>${group.pkid}</b>「${group.description}」？`,
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: '刪除',
       rejectLabel: '取消',
@@ -151,8 +150,15 @@ export class CourseGroupList implements OnInit {
             this.messages.add({ severity: 'success', summary: '已刪除', detail: group.description });
             this.load();
           },
-          error: () =>
-            this.messages.add({ severity: 'error', summary: '刪除失敗', detail: group.description }),
+          error: (err: { status?: number }) =>
+            this.messages.add({
+              severity: 'error',
+              summary: '刪除失敗',
+              detail:
+                err?.status === 409
+                  ? '此群組下仍有課程，請先移除或改派這些課程後再刪除'
+                  : group.description,
+            }),
         });
       },
     });
