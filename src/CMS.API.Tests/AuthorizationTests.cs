@@ -173,7 +173,8 @@ public class AuthorizationTests : IClassFixture<AuthorizationTests.ApiFactory>
         var response = await client.PostAsJsonAsync("/api/Auth/reset-password", new { userId = "target@x.com" });
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.Equal(PasswordHasher.Sha256Hex("CMS4fun#"), capturedHash);
+        Assert.False(PasswordHasher.IsLegacyFormat(capturedHash));
+        Assert.True(PasswordHasher.Verify("CMS4fun#", capturedHash));
 
         var body = await response.Content.ReadAsStringAsync();
         Assert.DoesNotContain("CMS4fun#", body);

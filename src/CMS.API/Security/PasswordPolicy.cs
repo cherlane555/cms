@@ -8,13 +8,19 @@ namespace CMS.API.Security;
 /// </summary>
 public static class PasswordPolicy
 {
+    /// <summary>Minimum password length.</summary>
+    public const int MinLength = 8;
+
+    /// <summary>Minimum number of character classes (upper/lower/digit/symbol) required.</summary>
+    public const int MinCharacterClasses = 3;
+
     /// <summary>Bilingual rejection message shown to the user when a new password fails the rule.</summary>
-    public const string ComplexityMessage =
-        "密碼長度至少需 8 碼，且內容須至少包含四種字元的其中三種：大寫英文／小寫英文／數字／符號";
+    public static readonly string ComplexityMessage =
+        $"密碼長度至少需 {MinLength} 碼，且內容須至少包含四種字元的其中三種：大寫英文／小寫英文／數字／符號";
 
     public static bool IsValid(string? password)
     {
-        if (string.IsNullOrEmpty(password) || password.Length < 8)
+        if (string.IsNullOrEmpty(password) || password.Length < MinLength)
         {
             return false;
         }
@@ -25,6 +31,6 @@ public static class PasswordPolicy
         if (password.Any(char.IsDigit)) classes++;
         if (password.Any(c => !char.IsLetterOrDigit(c))) classes++;
 
-        return classes >= 3;
+        return classes >= MinCharacterClasses;
     }
 }

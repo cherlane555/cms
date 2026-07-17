@@ -20,9 +20,16 @@ public class AuthControllerTests
 
     private readonly Mock<IAuthRepository> _repo = new(MockBehavior.Strict);
     private readonly ITokenService _tokenService = new TokenService();
+    private readonly IJwtSigningKeyProvider _keyProvider = new StubKeyProvider();
 
-    private AuthController CreateController() => new(_repo.Object, _tokenService);
+    private sealed class StubKeyProvider : IJwtSigningKeyProvider
+    {
+        public string GetSigningKey() => SigningKey;
+    }
 
+    private AuthController CreateController() => new(_repo.Object, _tokenService, _keyProvider);
+
+    // Legacy (Lab 03) format — unsalted SHA-256 hex, as already-seeded AppUser rows have it.
     private static AuthUser SampleUser(bool active = true) => new()
     {
         UserId = UserId,
@@ -32,13 +39,26 @@ public class AuthControllerTests
         Roles = new List<string> { "Admin", "User" }
     };
 
+    // Already-migrated (PBKDF2) format, as a row would look after its first post-upgrade login.
+    private static AuthUser SampleUserMigrated(bool active = true) => new()
+    {
+        UserId = UserId,
+        UserName = "Miles Sun",
+        PasswordHash = PasswordHasher.Hash(Password),
+        IsActive = active,
+        Roles = new List<string> { "Admin", "User" }
+    };
+
     private static LoginRequest Credentials(string password = Password) =>
         new() { UserId = UserId, Password = password };
 
+    // SampleUser() is legacy-format, so a successful login always migrates it — every caller
+    // must accept that UpdatePasswordAsync call on the strict mock.
     private async Task<LoginResponse> LoginSuccessAsync()
     {
         _repo.Setup(r => r.GetLoginUserAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(SampleUser());
-        _repo.Setup(r => r.GetSigningKeyAsync(It.IsAny<CancellationToken>())).ReturnsAsync(SigningKey);
+        _repo.Setup(r => r.UpdatePasswordAsync(UserId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var result = await CreateController().Login(Credentials(), CancellationToken.None);
 
@@ -68,7 +88,6 @@ public class AuthControllerTests
         var result = await CreateController().Login(Credentials("not-the-password"), CancellationToken.None);
 
         Assert.IsType<UnauthorizedObjectResult>(result.Result);
-        _repo.Verify(r => r.GetSigningKeyAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -80,7 +99,6 @@ public class AuthControllerTests
             new LoginRequest { UserId = "ghost", Password = Password }, CancellationToken.None);
 
         Assert.IsType<UnauthorizedObjectResult>(result.Result);
-        _repo.Verify(r => r.GetSigningKeyAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -91,7 +109,6 @@ public class AuthControllerTests
         var result = await CreateController().Login(Credentials(), CancellationToken.None);
 
         Assert.IsType<UnauthorizedObjectResult>(result.Result);
-        _repo.Verify(r => r.GetSigningKeyAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ---- Token contents ----
@@ -135,6 +152,38 @@ public class AuthControllerTests
             $"exp {jwt.ValidTo:o} should be ~24h from now ({expected:o}).");
     }
 
+    // ---- Password hash migration (legacy SHA-256 -> PBKDF2, transparent on login) ----
+
+    [Fact]
+    public async Task Login_LegacyHash_MigratesToPbkdf2OnSuccess()
+    {
+        string? capturedHash = null;
+        _repo.Setup(r => r.GetLoginUserAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(SampleUser());
+        _repo.Setup(r => r.UpdatePasswordAsync(UserId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((_, hash, _) => capturedHash = hash)
+            .ReturnsAsync(true);
+
+        var result = await CreateController().Login(Credentials(), CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        _repo.Verify(r => r.UpdatePasswordAsync(UserId, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.False(PasswordHasher.IsLegacyFormat(capturedHash));
+        Assert.True(PasswordHasher.Verify(Password, capturedHash));
+    }
+
+    [Fact]
+    public async Task Login_AlreadyMigratedHash_DoesNotRehash()
+    {
+        _repo.Setup(r => r.GetLoginUserAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(SampleUserMigrated());
+
+        var result = await CreateController().Login(Credentials(), CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        _repo.Verify(
+            r => r.UpdatePasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     // ---- No PasswordHash leak ----
 
     [Fact]
@@ -156,7 +205,7 @@ public class AuthControllerTests
     {
         var claims = userId is null ? Array.Empty<Claim>() : new[] { new Claim("userId", userId) };
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "TestAuth"));
-        return new AuthController(_repo.Object, _tokenService)
+        return new AuthController(_repo.Object, _tokenService, _keyProvider)
         {
             ControllerContext = new ControllerContext
             {
@@ -278,8 +327,10 @@ public class AuthControllerTests
     [Fact]
     public async Task ChangePassword_Valid_SetsHashOfNewPassword()
     {
+        string? capturedHash = null;
         _repo.Setup(r => r.GetLoginUserAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(SampleUser());
-        _repo.Setup(r => r.UpdatePasswordAsync(UserId, PasswordHasher.Sha256Hex(NewPassword), It.IsAny<CancellationToken>()))
+        _repo.Setup(r => r.UpdatePasswordAsync(UserId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((_, hash, _) => capturedHash = hash)
             .ReturnsAsync(true);
 
         var result = await CreateControllerWithUser(UserId)
@@ -287,8 +338,10 @@ public class AuthControllerTests
 
         Assert.IsType<NoContentResult>(result);
         _repo.Verify(
-            r => r.UpdatePasswordAsync(UserId, PasswordHasher.Sha256Hex(NewPassword), It.IsAny<CancellationToken>()),
+            r => r.UpdatePasswordAsync(UserId, It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once);
+        Assert.False(PasswordHasher.IsLegacyFormat(capturedHash));
+        Assert.True(PasswordHasher.Verify(NewPassword, capturedHash));
     }
 
     // ---- Reset password to default (Admin only; role enforcement tested in AuthorizationTests) ----
@@ -299,8 +352,10 @@ public class AuthControllerTests
     [Fact]
     public async Task ResetPassword_SetsHashOfDefaultPassword()
     {
+        string? capturedHash = null;
         _repo.Setup(r => r.GetDefaultPasswordAsync(It.IsAny<CancellationToken>())).ReturnsAsync(DefaultPassword);
-        _repo.Setup(r => r.UpdatePasswordAsync(TargetUser, PasswordHasher.Sha256Hex(DefaultPassword), It.IsAny<CancellationToken>()))
+        _repo.Setup(r => r.UpdatePasswordAsync(TargetUser, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((_, hash, _) => capturedHash = hash)
             .ReturnsAsync(true);
 
         var result = await CreateControllerWithUser(UserId)
@@ -309,8 +364,10 @@ public class AuthControllerTests
         // NoContent carries no body — no password/hash is returned.
         Assert.IsType<NoContentResult>(result);
         _repo.Verify(
-            r => r.UpdatePasswordAsync(TargetUser, PasswordHasher.Sha256Hex(DefaultPassword), It.IsAny<CancellationToken>()),
+            r => r.UpdatePasswordAsync(TargetUser, It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once);
+        Assert.False(PasswordHasher.IsLegacyFormat(capturedHash));
+        Assert.True(PasswordHasher.Verify(DefaultPassword, capturedHash));
     }
 
     [Theory]

@@ -13,11 +13,13 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthRepository _repository;
     private readonly ITokenService _tokenService;
+    private readonly IJwtSigningKeyProvider _keyProvider;
 
-    public AuthController(IAuthRepository repository, ITokenService tokenService)
+    public AuthController(IAuthRepository repository, ITokenService tokenService, IJwtSigningKeyProvider keyProvider)
     {
         _repository = repository;
         _tokenService = tokenService;
+        _keyProvider = keyProvider;
     }
 
     /// <summary>
@@ -37,17 +39,27 @@ public class AuthController : ControllerBase
 
         var user = await _repository.GetLoginUserAsync(request.UserId, ct);
 
-        // UserId exact match (the lookup) + IsActive = 1 + PasswordHash = SHA256(password).
-        var suppliedHash = PasswordHasher.Sha256Hex(request.Password);
+        // UserId exact match (the lookup) + IsActive = 1 + a hash of the supplied password
+        // verifying against the stored PasswordHash (legacy unsalted-SHA256 or current PBKDF2).
         if (user is null
             || !user.IsActive
-            || !string.Equals(user.PasswordHash?.Trim(), suppliedHash, StringComparison.OrdinalIgnoreCase))
+            || !PasswordHasher.Verify(request.Password, user.PasswordHash))
         {
             return InvalidCredentials();
         }
 
-        var signingKey = await _repository.GetSigningKeyAsync(ct);
-        var token = _tokenService.CreateToken(user.UserId, user.UserName, user.Roles, signingKey);
+        // Transparent migration: a legacy (Lab 03) row can only be rehashed once we have the
+        // plaintext in hand, which is exactly now — right after verifying it. One-time per user.
+        if (PasswordHasher.IsLegacyFormat(user.PasswordHash))
+        {
+            await _repository.UpdatePasswordAsync(user.UserId, PasswordHasher.Hash(request.Password), ct);
+        }
+
+        // Sign with the same cached key JwtBearer validation uses (IJwtSigningKeyProvider), not
+        // a fresh DB read — otherwise a token minted right after a key rotation (new key) would
+        // fail validation on its very next request (still checked against the stale cached key)
+        // until the app restarts and the cache catches up.
+        var token = _tokenService.CreateToken(user.UserId, user.UserName, user.Roles, _keyProvider.GetSigningKey());
 
         return Ok(new LoginResponse
         {
@@ -112,8 +124,7 @@ public class AuthController : ControllerBase
         }
 
         // 1. Current password must match the stored hash.
-        var currentHash = PasswordHasher.Sha256Hex(request.CurrentPassword ?? string.Empty);
-        if (!string.Equals(user.PasswordHash?.Trim(), currentHash, StringComparison.OrdinalIgnoreCase))
+        if (!PasswordHasher.Verify(request.CurrentPassword, user.PasswordHash))
         {
             return BadRequest(new { message = "目前密碼不正確 Current password is incorrect." });
         }
@@ -131,7 +142,7 @@ public class AuthController : ControllerBase
         }
 
         // 4. Persist the new hash + updated timestamp.
-        var newHash = PasswordHasher.Sha256Hex(request.NewPassword!);
+        var newHash = PasswordHasher.Hash(request.NewPassword!);
         await _repository.UpdatePasswordAsync(userId, newHash, ct);
 
         return NoContent();
@@ -152,7 +163,7 @@ public class AuthController : ControllerBase
         }
 
         var defaultPassword = await _repository.GetDefaultPasswordAsync(ct);
-        var hash = PasswordHasher.Sha256Hex(defaultPassword);
+        var hash = PasswordHasher.Hash(defaultPassword);
 
         var updated = await _repository.UpdatePasswordAsync(request.UserId, hash, ct);
         if (!updated)

@@ -6,15 +6,26 @@ login, tokens, roles, or any password reset/change. General run/test setup is in
 
 ## Model / conventions
 
-- **Password hash:** SHA-256, **lowercase hex** (`Security/PasswordHasher.Sha256Hex`) — the format
-  seeded since Lab 03. Login compares with `OrdinalIgnoreCase`. Hashing is **server-side only**; no
-  password or hash ever crosses the wire (requests send plaintext over TLS; responses never include a hash).
+- **Password hash:** PBKDF2-HMACSHA256, 100k iterations, random per-user salt
+  (`Security/PasswordHasher.Hash`), encoded as `"PBKDF2$<iterations>$<salt>$<hash>"`.
+  `PasswordHasher.Verify` also accepts the legacy unsalted-SHA256-hex format seeded since Lab 03
+  (`PasswordHasher.Sha256Hex`, verification-only) — on a successful login with a legacy-format
+  hash, `AuthController.Login` immediately persists a fresh PBKDF2 hash for that user
+  (`PasswordHasher.IsLegacyFormat` + `UpdatePasswordAsync`), so every seeded row migrates
+  transparently the next time its owner logs in. `change-password` and `reset-password` always
+  write PBKDF2. Hashing is **server-side only**; no password or hash ever crosses the wire
+  (requests send plaintext over TLS; responses never include a hash).
 - **JWT:** HS256, 24-hour lifetime (`Security/TokenService`). Claims: `sub`, `jti`, `userId`,
   `userName`, and one **`ClaimTypes.Role`** claim per role (serialized as the long
   `http://schemas.microsoft.com/ws/2008/06/identity/claims/role` URI).
 - **Signing key:** the `symmetricSecurityKey` property of the JSON in `SysConfig` where
   `configKey = 'appConfig'` (same JSON also holds `defaultPassword`). Read at runtime — never
-  hard-coded — via `IAuthRepository.GetSigningKeyAsync`; cached process-wide by `IJwtSigningKeyProvider`.
+  hard-coded — via `IAuthRepository.GetSigningKeyAsync`, then cached process-wide by
+  `IJwtSigningKeyProvider` (`Lazy<string>` with `LazyThreadSafetyMode.PublicationOnly`, so a
+  transient DB failure on the first call is never cached — the next call retries instead of
+  failing every request until a restart). `AuthController.Login` signs new tokens through this
+  same cached provider rather than reading SysConfig directly, so signing and validation always
+  agree on the key in use. A key rotation still requires an app restart.
 - **Password policy** (`Security/PasswordPolicy`): length ≥ 8 **and** ≥ 3 of 4 classes {upper, lower,
   digit, symbol}. Bilingual `ComplexityMessage` constant is mirrored client-side in
   `core/auth/password.validators.ts` (`PASSWORD_COMPLEXITY_MESSAGE`).
