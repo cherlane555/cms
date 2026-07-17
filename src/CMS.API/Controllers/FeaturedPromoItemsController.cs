@@ -38,7 +38,10 @@ public class FeaturedPromoItemsController : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
-    /// <summary>Create an item. The (ScheduleOn, TrainingCenter, Slot) cell must be free.</summary>
+    /// <summary>Create an item. The (ScheduleOn, TrainingCenter, Slot) cell must be free — the
+    /// authoritative check runs inside the repository's write transaction (see
+    /// <see cref="SlotConflictException"/>), not here, so a concurrent request for the same cell
+    /// can't slip past a separate-connection pre-check.</summary>
     [HttpPost]
     public async Task<ActionResult<FeaturedPromoItem>> Create(
         [FromBody] FeaturedPromoItemRequest request, CancellationToken ct)
@@ -49,13 +52,15 @@ public class FeaturedPromoItemsController : ControllerBase
             return ValidationProblem(ModelState);
         }
 
-        if (await _repository.IsSlotTakenAsync(request.ScheduleOn, request.TrainingCenterPkid, request.Slot, 0, ct))
+        try
         {
-            return Conflict($"Slot {request.Slot} on {request.ScheduleOn:yyyy-MM-dd} is already taken.");
+            var created = await _repository.CreateAsync(request, ct);
+            return CreatedAtAction(nameof(GetById), new { id = created.Pkid }, created);
         }
-
-        var created = await _repository.CreateAsync(request, ct);
-        return CreatedAtAction(nameof(GetById), new { id = created.Pkid }, created);
+        catch (SlotConflictException ex)
+        {
+            return Conflict(ex.Message);
+        }
     }
 
     /// <summary>Update an item (pkid taken from the body).</summary>
@@ -72,13 +77,15 @@ public class FeaturedPromoItemsController : ControllerBase
             return ValidationProblem(ModelState);
         }
 
-        if (await _repository.IsSlotTakenAsync(request.ScheduleOn, request.TrainingCenterPkid, request.Slot, request.Pkid, ct))
+        try
         {
-            return Conflict($"Slot {request.Slot} on {request.ScheduleOn:yyyy-MM-dd} is already taken.");
+            var updated = await _repository.UpdateAsync(request, ct);
+            return updated ? NoContent() : NotFound();
         }
-
-        var updated = await _repository.UpdateAsync(request, ct);
-        return updated ? NoContent() : NotFound();
+        catch (SlotConflictException ex)
+        {
+            return Conflict(ex.Message);
+        }
     }
 
     /// <summary>Delete an item by pkid.</summary>

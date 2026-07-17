@@ -122,8 +122,6 @@ public class FeaturedPromoItemsControllerTests
     public async Task Create_FreeSlot_ReturnsCreatedAtAction()
     {
         var request = SampleRequest();
-        _repo.Setup(r => r.IsSlotTakenAsync(request.ScheduleOn, request.TrainingCenterPkid, request.Slot, 0, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
         _repo.Setup(r => r.CreateAsync(request, It.IsAny<CancellationToken>())).ReturnsAsync(SampleItem(5));
 
         var result = await CreateController().Create(request, CancellationToken.None);
@@ -135,17 +133,19 @@ public class FeaturedPromoItemsControllerTests
         Assert.Equal(5, body.Pkid);
     }
 
+    // The authoritative slot-uniqueness check now runs inside the repository's write
+    // transaction (see SlotConflictException) rather than as a separate pre-check, so the
+    // controller's job is just to translate that exception into a 409.
     [Fact]
     public async Task Create_TakenSlot_ReturnsConflict()
     {
         var request = SampleRequest();
-        _repo.Setup(r => r.IsSlotTakenAsync(request.ScheduleOn, request.TrainingCenterPkid, request.Slot, 0, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        _repo.Setup(r => r.CreateAsync(request, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new SlotConflictException("Slot 1 on 2026-07-13 is already taken."));
 
         var result = await CreateController().Create(request, CancellationToken.None);
 
         Assert.IsType<ConflictObjectResult>(result.Result);
-        _repo.Verify(r => r.CreateAsync(It.IsAny<FeaturedPromoItemRequest>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -191,8 +191,6 @@ public class FeaturedPromoItemsControllerTests
     public async Task Update_Existing_ReturnsNoContent()
     {
         var request = SampleRequest(pkid: 1);
-        _repo.Setup(r => r.IsSlotTakenAsync(request.ScheduleOn, request.TrainingCenterPkid, request.Slot, 1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
         _repo.Setup(r => r.UpdateAsync(request, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var result = await CreateController().Update(request, CancellationToken.None);
@@ -204,8 +202,6 @@ public class FeaturedPromoItemsControllerTests
     public async Task Update_Missing_ReturnsNotFound()
     {
         var request = SampleRequest(pkid: 99);
-        _repo.Setup(r => r.IsSlotTakenAsync(request.ScheduleOn, request.TrainingCenterPkid, request.Slot, 99, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
         _repo.Setup(r => r.UpdateAsync(request, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         var result = await CreateController().Update(request, CancellationToken.None);
@@ -217,13 +213,12 @@ public class FeaturedPromoItemsControllerTests
     public async Task Update_SlotTakenByOther_ReturnsConflict()
     {
         var request = SampleRequest(pkid: 1);
-        _repo.Setup(r => r.IsSlotTakenAsync(request.ScheduleOn, request.TrainingCenterPkid, request.Slot, 1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        _repo.Setup(r => r.UpdateAsync(request, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new SlotConflictException("Slot 1 on 2026-07-13 is already taken."));
 
         var result = await CreateController().Update(request, CancellationToken.None);
 
         Assert.IsType<ConflictObjectResult>(result);
-        _repo.Verify(r => r.UpdateAsync(It.IsAny<FeaturedPromoItemRequest>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

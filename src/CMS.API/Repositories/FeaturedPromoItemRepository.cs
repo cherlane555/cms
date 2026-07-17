@@ -77,10 +77,37 @@ WHERE ScheduleOn = @ScheduleOn AND TrainingCenter_pkid = @TrainingCenterPkid
         return pkid.HasValue;
     }
 
+    /// <summary>
+    /// Authoritative slot-uniqueness check, run on the caller's own connection/transaction with
+    /// (UPDLOCK, HOLDLOCK) so a concurrent Create/Update targeting the same
+    /// (ScheduleOn, TrainingCenter, Slot) cell blocks until this transaction commits or rolls
+    /// back, instead of both transactions reading "free" on separate connections and racing to
+    /// insert. <see cref="IsSlotTakenAsync"/> alone can't close that window — it runs on its own
+    /// connection before the write transaction even opens.
+    /// </summary>
+    private static async Task EnsureSlotFreeAsync(
+        System.Data.IDbConnection conn, System.Data.IDbTransaction tx,
+        DateTime scheduleOn, short trainingCenterPkid, byte slot, int excludePkid, CancellationToken ct)
+    {
+        var taken = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(@"
+SELECT TOP 1 pkid FROM FeaturedPromoItem WITH (UPDLOCK, HOLDLOCK)
+WHERE ScheduleOn = @ScheduleOn AND TrainingCenter_pkid = @TrainingCenterPkid
+  AND Slot = @Slot AND pkid <> @ExcludePkid",
+            new { ScheduleOn = scheduleOn, TrainingCenterPkid = trainingCenterPkid, Slot = slot, ExcludePkid = excludePkid },
+            tx, cancellationToken: ct));
+
+        if (taken.HasValue)
+        {
+            throw new SlotConflictException($"Slot {slot} on {scheduleOn:yyyy-MM-dd} is already taken.");
+        }
+    }
+
     public async Task<FeaturedPromoItem> CreateAsync(FeaturedPromoItemRequest request, CancellationToken ct = default)
     {
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
         using var tx = conn.BeginTransaction();
+
+        await EnsureSlotFreeAsync(conn, tx, request.ScheduleOn.Date, request.TrainingCenterPkid, request.Slot, excludePkid: 0, ct);
 
         var pkid = await conn.ExecuteScalarAsync<int>(new CommandDefinition(@"
 INSERT INTO FeaturedPromoItem (ScheduleOn, TrainingCenter_pkid, Slot, Promotion_pkid, Topic, Description)
@@ -120,6 +147,8 @@ SELECT CAST(SCOPE_IDENTITY() AS int);",
         {
             return false;
         }
+
+        await EnsureSlotFreeAsync(conn, tx, request.ScheduleOn.Date, request.TrainingCenterPkid, request.Slot, excludePkid: request.Pkid, ct);
 
         var affected = await conn.ExecuteAsync(new CommandDefinition(@"
 UPDATE FeaturedPromoItem
@@ -204,9 +233,13 @@ WHERE pkid = @Pkid;",
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
         using var tx = conn.BeginTransaction();
 
+        // UPDLOCK+HOLDLOCK: two concurrent moves in the same (ScheduleOn, TrainingCenter) group
+        // must serialize on these reads rather than both proceeding with a stale occupant view —
+        // without it, concurrent moves can deadlock (locks taken in different orders) or lose an
+        // update (second move overwrites the first's swap using pre-swap data).
         var row = await conn.QuerySingleOrDefaultAsync<SlotRow>(new CommandDefinition(@"
 SELECT ScheduleOn, TrainingCenter_pkid AS TrainingCenterPkid, Slot
-FROM FeaturedPromoItem WHERE pkid = @Pkid",
+FROM FeaturedPromoItem WITH (UPDLOCK, HOLDLOCK) WHERE pkid = @Pkid",
             new { Pkid = pkid }, tx, cancellationToken: ct));
         if (row is null)
         {
@@ -220,7 +253,7 @@ FROM FeaturedPromoItem WHERE pkid = @Pkid",
         }
 
         var occupantPkid = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(@"
-SELECT pkid FROM FeaturedPromoItem
+SELECT pkid FROM FeaturedPromoItem WITH (UPDLOCK, HOLDLOCK)
 WHERE ScheduleOn = @ScheduleOn AND TrainingCenter_pkid = @TrainingCenterPkid AND Slot = @Slot",
             new { row.ScheduleOn, row.TrainingCenterPkid, Slot = target }, tx, cancellationToken: ct));
 
