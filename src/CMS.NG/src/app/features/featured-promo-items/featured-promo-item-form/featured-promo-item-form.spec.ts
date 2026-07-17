@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { MessageService } from 'primeng/api';
 import { FeaturedPromoItemForm } from './featured-promo-item-form';
 import { FeaturedPromoItemService } from '@core/services/featured-promo-item.service';
@@ -119,6 +119,23 @@ describe('FeaturedPromoItemForm', () => {
 
     expect(form().getRawValue().topic).toBe('自訂主題');
     expect(form().getRawValue().description).toBe('自訂描述');
+  });
+
+  it('lookup ignores a re-entrant call while one is already in flight', () => {
+    // Regression: clicking 查詢 blurs the PromoCode input first, firing (blur)="lookup()"
+    // and (onClick)="lookup()" for the same click, both before the first request resolves.
+    // Found by /qa on 2026-07-17
+    // Report: .gstack/qa-reports/qa-report-full-project-2026-07-17.md
+    const pending = new Subject<PromotionLookup>();
+    lookupSpy.getPromotionByCode.and.returnValue(pending);
+    fixture.detectChanges();
+    form().patchValue({ promoCode: '20251215_n8n' });
+
+    (fixture.componentInstance as any).lookup();
+    (fixture.componentInstance as any).lookup();
+    pending.next(promo);
+
+    expect(lookupSpy.getPromotionByCode).toHaveBeenCalledTimes(1);
   });
 
   it('save in New mode resolves the code then creates with the resolved Promotion_pkid', () => {

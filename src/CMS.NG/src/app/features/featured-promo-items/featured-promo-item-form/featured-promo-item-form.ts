@@ -52,6 +52,9 @@ export class FeaturedPromoItemForm implements OnInit {
   // Promotion_pkid resolved for the current promoCode value.
   private promotionPkid = 0;
   private lookedUpCode = '';
+  // Clicking the 查詢 button blurs the PromoCode input first, firing both the
+  // (blur) and (onClick) handlers for the same click — guard against the duplicate call.
+  private lookingUp = false;
 
   ngOnInit(): void {
     const source = this.item ?? this.prefill;
@@ -69,11 +72,13 @@ export class FeaturedPromoItemForm implements OnInit {
   /** Resolve PromoCode → Promotion_pkid; fill empty Topic/Description from the promotion. */
   protected lookup(): void {
     const code = this.form.getRawValue().promoCode.trim();
-    if (!code) {
+    if (!code || this.lookingUp) {
       return;
     }
+    this.lookingUp = true;
     this.lookups.getPromotionByCode(code).subscribe({
       next: (promo) => {
+        this.lookingUp = false;
         this.promotionPkid = promo.pkid;
         this.lookedUpCode = code;
         if (!this.form.getRawValue().topic) {
@@ -85,6 +90,7 @@ export class FeaturedPromoItemForm implements OnInit {
         this.messages.add({ severity: 'success', summary: '已找到促銷代碼', detail: code });
       },
       error: () => {
+        this.lookingUp = false;
         this.promotionPkid = 0;
         this.messages.add({ severity: 'error', summary: '查無促銷代碼', detail: code });
       },
