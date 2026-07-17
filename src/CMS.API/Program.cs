@@ -79,7 +79,11 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
-// First in the pipeline so it catches unhandled exceptions from everything downstream.
+// CORS must wrap the exception handler: Response.Clear() on an unhandled exception strips
+// any headers already added by inner middleware, so registering CORS after the handler would
+// leave error responses without Access-Control-Allow-Origin and unreadable by the browser.
+app.UseCors(CorsPolicy);
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Swagger UI at /swagger
@@ -89,8 +93,6 @@ app.UseSwaggerUI(options =>
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "CMS API v1");
     options.RoutePrefix = "swagger";
 });
-
-app.UseCors(CorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();

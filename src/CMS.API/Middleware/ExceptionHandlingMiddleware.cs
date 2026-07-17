@@ -27,6 +27,10 @@ public class ExceptionHandlingMiddleware
         {
             await _next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // Client disconnected/cancelled the request — not a server error, nothing to write.
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception handling {Method} {Path}",
