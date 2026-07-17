@@ -11,8 +11,11 @@ skill's heuristics.
   and/or payload cols (DisplayOrder, Description…) → **child entity, not n-n** — the skill's
   name-based heuristic over-matches these. Entities, *not* junctions: `PartnerCourseGroup`
   (CourseGroup/Partner), `CourseFAQ` / `CourseRelatedLink` / `HotCourse` (Course).
-- No RowAudit / DateOnly handlers in this codebase — the skill mentions them, but they don't exist
-  here. Ignore those steps. Sticky toolbar: only the Course form pins its action toolbar
+- **RowAudit now exists** (see [cross-cutting-notes.md](cross-cutting-notes.md)) and is wired into
+  every CRUD repository — ignore any `/crud` skill step claiming otherwise. **No `DateOnly`/`TimeOnly`
+  handlers exist yet**: no entity has scaffolded a `date`/`time` column, so `code-gen.convention.md`'s
+  "(already in Program.cs)" note is aspirational, not current state — register the handlers in
+  `Program.cs` yourself the first time one is needed. Sticky toolbar: only the Course form pins its action toolbar
   (`course-form.scss`; works because `app.scss` makes the shell's `.content` pane the scroll
   container — `top: -1.25rem` cancels the pane's padding so the bar pins flush).
 - Lookup routes are **kebab-case plural** (`/api/lookups/course-groups`), not `/api/Lookups/{Table}`.
@@ -40,8 +43,16 @@ skill's heuristics.
   is set by looking up `Promotion2.PromoCode` (`GET /api/lookups/promotions/by-code/{code}`;
   PromoCode is unique). `ScheduleOn` is a `date` column mapped to C# `DateTime` (no DateOnly
   handlers in this codebase). Lookups added: `training-centers`, `promotions/by-code`.
-- **AppUser** (pending) — PK is the string `UserId` (`pkid` is a display surrogate, same pattern as
-  AppRole); n-n with AppRole via `AppUserRole`. `SysConfig` is keyed `configKey`/`configValue`
-  (table appears in both `admin.sql` and `auth.sql`, identical); live DB verified to have the
-  `appConfig` row whose JSON value carries `defaultPassword`. `PasswordUpdatedTime` is nullable —
-  set it on create along with the hash.
+- **AppUser** (minimal — list + edit only, no full CRUD) — PK is the string `UserId` (`pkid` is a
+  display surrogate, same pattern as AppRole); n-n with AppRole via `AppUserRole`. `SysConfig` is
+  keyed `configKey`/`configValue` (table appears in both `admin.sql` and `auth.sql`, identical);
+  live DB verified to have the `appConfig` row whose JSON value carries `defaultPassword`.
+  `PasswordUpdatedTime` is nullable — set it on create along with the hash. See auth-notes.md —
+  full CRUD was never built (Lab 03 scope), only enough to host the Admin-only Reset Password
+  button.
+- **Partner** (built) — course parent lookup table (FK target for `Course.Partner_pkid`); standard
+  list/detail/form scaffold.
+- **PublishStatus** (built) — admin lookup table gating course visibility (`Course.PublishStatus_pkid`;
+  the brochure's `isPublished` check depends on `PublishStatus = 2` 上架中). Nav-gated under
+  系統管理 Admin alongside AppRole — its write endpoints need `[Authorize(Roles = "Admin")]` (shipped
+  without this originally; see cross-cutting-notes.md).
