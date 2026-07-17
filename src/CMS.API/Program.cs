@@ -86,13 +86,16 @@ app.UseCors(CorsPolicy);
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-// Swagger UI at /swagger
-app.UseSwagger();
-app.UseSwaggerUI(options =>
+// Swagger UI at /swagger — dev only, so a production deploy doesn't expose the full API schema.
+if (app.Environment.IsDevelopment())
 {
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "CMS API v1");
-    options.RoutePrefix = "swagger";
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "CMS API v1");
+        options.RoutePrefix = "swagger";
+    });
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
