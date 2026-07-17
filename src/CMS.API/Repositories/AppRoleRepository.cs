@@ -2,6 +2,7 @@ using CMS.API.Auditing;
 using CMS.API.Data;
 using CMS.API.Models;
 using Dapper;
+using Microsoft.Data.SqlClient;
 
 namespace CMS.API.Repositories;
 
@@ -89,17 +90,29 @@ FROM AppRole r";
         using var conn = await _factory.CreateOpenConnectionAsync(ct);
         using var tx = conn.BeginTransaction();
 
-        var pkid = await conn.ExecuteScalarAsync<int>(new CommandDefinition(@"
+        // The controller's ExistsAsync check runs on a separate, earlier connection — a
+        // concurrent create for the same RoleId can race past it. RoleId's own PRIMARY KEY
+        // constraint is the real backstop; catch its violation here instead of letting it
+        // surface as a raw 500.
+        int pkid;
+        try
+        {
+            pkid = await conn.ExecuteScalarAsync<int>(new CommandDefinition(@"
 INSERT INTO AppRole (RoleId, RoleName, PermissionLevel, Description)
 VALUES (@RoleId, @RoleName, @PermissionLevel, @Description);
 SELECT CAST(SCOPE_IDENTITY() AS int);",
-            new
-            {
-                request.RoleId,
-                request.RoleName,
-                request.PermissionLevel,
-                request.Description
-            }, tx, cancellationToken: ct));
+                new
+                {
+                    request.RoleId,
+                    request.RoleName,
+                    request.PermissionLevel,
+                    request.Description
+                }, tx, cancellationToken: ct));
+        }
+        catch (SqlException ex) when (ex.Number is 2627 or 2601)
+        {
+            throw new RoleConflictException($"Role '{request.RoleId}' already exists.");
+        }
 
         await SyncUsersAsync(conn, tx, request.RoleId, request.UserIds, ct);
 

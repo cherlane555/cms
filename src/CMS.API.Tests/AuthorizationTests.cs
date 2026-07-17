@@ -181,6 +181,44 @@ public class AuthorizationTests : IClassFixture<AuthorizationTests.ApiFactory>
         Assert.DoesNotContain(PasswordHasher.Sha256Hex("CMS4fun#"), body);
     }
 
+    // ---- AppRole write endpoints (Admin only — UserIds here writes AppUserRole, which is
+    // exactly what login reads to build JWT role claims; a non-Admin caller must never reach it) ----
+
+    [Fact]
+    public async Task AppRoleCreate_NonAdmin_Returns403()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", NonAdminToken());
+
+        var response = await client.PostAsJsonAsync(
+            "/api/app-roles",
+            new { roleId = "Editor", roleName = "Editor", permissionLevel = 50, userIds = new[] { "reg@uuu.com.tw" } });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        _factory.AppRoleRepo.Verify(
+            r => r.CreateAsync(It.IsAny<AppRoleRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AppRoleCreate_Admin_Succeeds()
+    {
+        _factory.AppRoleRepo
+            .Setup(r => r.ExistsAsync("Editor", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _factory.AppRoleRepo
+            .Setup(r => r.CreateAsync(It.IsAny<AppRoleRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AppRole { RoleId = "Editor", RoleName = "Editor", PermissionLevel = 50 });
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ValidToken());
+
+        var response = await client.PostAsJsonAsync(
+            "/api/app-roles",
+            new { roleId = "Editor", roleName = "Editor", permissionLevel = 50, userIds = Array.Empty<string>() });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
     [Fact]
     public async Task AuthLogin_IsAnonymous_ReturnsOkWithoutToken()
     {
