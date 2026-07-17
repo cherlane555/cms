@@ -32,19 +32,9 @@ Test login: `miles@uuu.com.tw` / `CMS4fun#` (roles **Admin + User**).
 
 ## Skill routing
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
-
-Key routing rules:
-- Product ideas/brainstorming → invoke /office-hours
-- Strategy/scope → invoke /plan-ceo-review
-- Architecture → invoke /plan-eng-review
-- Design system/plan review → invoke /design-consultation or /plan-design-review
-- Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
-- QA/testing site behavior → invoke /qa or /qa-only
-- Code review/diff check → invoke /review
-- Visual polish → invoke /design-review
-- Ship/deploy/PR → invoke /ship or /land-and-deploy
-- Save progress → invoke /context-save
-- Resume context → invoke /context-restore
-- Author a backlog-ready spec/issue → invoke /spec
+Match the request to a skill and invoke it via the Skill tool (when in doubt, invoke): ideas/brainstorm
+→ `/office-hours`; strategy/scope → `/plan-ceo-review`; architecture → `/plan-eng-review`; design
+system/plan → `/design-consultation` or `/plan-design-review`; full review pipeline → `/autoplan`;
+bugs → `/investigate`; QA → `/qa` / `/qa-only`; diff review → `/review`; visual polish →
+`/design-review`; ship/PR → `/ship` / `/land-and-deploy`; save/resume context → `/context-save` /
+`/context-restore`; backlog-ready spec/issue → `/spec`.
