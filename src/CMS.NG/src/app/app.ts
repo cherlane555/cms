@@ -37,7 +37,26 @@ export class App {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
+  constructor() {
+    // Below the mobile breakpoint the sidebar is an off-canvas drawer; close it
+    // once a navigation lands so picking a nav-item doesn't leave it covering the page.
+    this.router.events
+      .pipe(filter((e) => e instanceof NavigationEnd))
+      .subscribe(() => this.sidebarOpen.set(false));
+  }
+
   protected readonly brand = 'UWA';
+
+  /** Mobile-only off-canvas sidebar state; has no effect above the mobile breakpoint. */
+  protected readonly sidebarOpen = signal(false);
+
+  protected toggleSidebar(): void {
+    this.sidebarOpen.update((open) => !open);
+  }
+
+  protected closeSidebar(): void {
+    this.sidebarOpen.set(false);
+  }
 
   protected readonly userName = this.auth.userName;
   protected readonly isAuthenticated = this.auth.isAuthenticated;

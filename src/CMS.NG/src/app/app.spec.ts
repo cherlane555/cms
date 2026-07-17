@@ -1,10 +1,14 @@
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MessageService } from 'primeng/api';
 import { App } from './app';
+
+@Component({ selector: 'app-stub', template: '' })
+class StubPage {}
 
 /** Unsigned JWT carrying the given roles, as the API emits them. */
 function makeJwt(roles: string[]): string {
@@ -29,7 +33,7 @@ describe('App', () => {
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        provideRouter([]),
+        provideRouter([{ path: 'stub', component: StubPage }]),
         provideHttpClient(),
         provideHttpClientTesting(),
         provideNoopAnimations(),
@@ -70,5 +74,52 @@ describe('App', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.textContent).toContain('課程管理 Course');
     expect(el.textContent).not.toContain('系統管理 Admin');
+  });
+
+  describe('mobile sidebar drawer', () => {
+    beforeEach(() => signIn(['Admin', 'User']));
+
+    it('starts closed, and the menu-toggle button opens it', () => {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      expect(el.querySelector('.sidebar')?.classList).not.toContain('open');
+      expect(el.querySelector('.sidebar-backdrop')).toBeNull();
+
+      el.querySelector<HTMLButtonElement>('.menu-toggle')!.click();
+      fixture.detectChanges();
+
+      expect(el.querySelector('.sidebar')?.classList).toContain('open');
+      expect(el.querySelector('.sidebar-backdrop')).not.toBeNull();
+      expect(el.querySelector('.menu-toggle')?.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('clicking the backdrop closes the drawer', () => {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      el.querySelector<HTMLButtonElement>('.menu-toggle')!.click();
+      fixture.detectChanges();
+      el.querySelector<HTMLElement>('.sidebar-backdrop')!.click();
+      fixture.detectChanges();
+
+      expect(el.querySelector('.sidebar')?.classList).not.toContain('open');
+      expect(el.querySelector('.sidebar-backdrop')).toBeNull();
+    });
+
+    it('closes once a navigation lands, so picking a nav-item does not leave it open', async () => {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      (fixture.componentInstance as any).toggleSidebar();
+      fixture.detectChanges();
+      expect((fixture.componentInstance as any).sidebarOpen()).toBe(true);
+
+      await TestBed.inject(Router).navigateByUrl('/stub');
+      fixture.detectChanges();
+
+      expect((fixture.componentInstance as any).sidebarOpen()).toBe(false);
+    });
   });
 });

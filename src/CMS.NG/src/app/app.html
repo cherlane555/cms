@@ -3,7 +3,11 @@
 
 @if (isAuthenticated() && !bare()) {
   <div class="layout">
-    <aside class="sidebar">
+    @if (sidebarOpen()) {
+      <div class="sidebar-backdrop" (click)="closeSidebar()"></div>
+    }
+
+    <aside class="sidebar" [class.open]="sidebarOpen()">
       <div class="brand">
         <span class="logo"><i class="pi pi-box"></i></span>
         <span class="name">{{ brand }}</span>
@@ -52,6 +56,15 @@
 
     <main class="content">
       <header class="topbar">
+        <button
+          type="button"
+          class="menu-toggle"
+          aria-label="開啟選單 Toggle menu"
+          [attr.aria-expanded]="sidebarOpen()"
+          (click)="toggleSidebar()"
+        >
+          <i class="pi pi-bars"></i>
+        </button>
         <div class="spacer"></div>
         <div class="user-box">
           <a class="user-link" routerLink="/profile" title="我的個人資料 My Profile">
